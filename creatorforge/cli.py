@@ -368,6 +368,22 @@ def cmd_growth(args) -> int:
     return 0
 
 
+def cmd_film(args) -> int:
+    """Record real commands running in a repo into a terminal-cast video."""
+    from . import tts
+    from .record import capture, render_terminal
+    cmds = args.commands.split(";") if args.commands else ["python -m pytest -q", "python demo.py"]
+    caps = [capture(c.strip(), cwd=args.repo, title=c.strip()) for c in cmds if c.strip()]
+    audio = None
+    if args.narrate:
+        audio = tts.synthesize(args.narrate, args.out + "_voice.wav", backend="auto")["path"]
+    res = render_terminal(caps, args.out, audio_path=audio,
+                          fps=args.fps, lines_per_sec=args.lps)
+    _print({"video": res["path"], "seconds": res["seconds"], "captures": res["captures"],
+            "commands": [c.command for c in caps], "exit_codes": [c.returncode for c in caps]})
+    return 0
+
+
 def cmd_serve(args) -> int:
     from .mcp_server import MCPServer
     print("creatorforge MCP server over stdio", file=sys.stderr)
@@ -526,6 +542,14 @@ def build_parser() -> argparse.ArgumentParser:
     pgr = sub.add_parser("growth", help="a 30-day launch strategy mirroring how big AI companies grew")
     pgr.add_argument("spec", help="repo path or owner/name"); pgr.add_argument("--out", default=None)
     pgr.set_defaults(func=cmd_growth)
+
+    pfm = sub.add_parser("film", help="record real commands running in a repo into a demo video")
+    pfm.add_argument("--repo", required=True)
+    pfm.add_argument("--commands", default=None, help="semicolon-separated; default: pytest + demo.py")
+    pfm.add_argument("--narrate", default=None, help="voiceover script (local TTS)")
+    pfm.add_argument("--out", required=True)
+    pfm.add_argument("--fps", type=int, default=12); pfm.add_argument("--lps", type=float, default=2.2)
+    pfm.set_defaults(func=cmd_film)
 
     sub.add_parser("serve", help="serve the engine to agents over MCP (stdio)").set_defaults(func=cmd_serve)
     return p

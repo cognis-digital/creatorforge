@@ -19,6 +19,24 @@ def piper_available() -> bool:
     return shutil.which("piper") is not None
 
 
+def sapi_available() -> bool:
+    """Offline OS TTS (Windows SAPI / macOS / espeak) via pyttsx3."""
+    try:
+        import pyttsx3  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def _synth_sapi(text: str, out_path: str) -> dict:
+    import pyttsx3
+    path = out_path if out_path.endswith(".wav") else out_path + ".wav"
+    engine = pyttsx3.init()
+    engine.save_to_file(text, path)
+    engine.runAndWait()
+    return {"path": path, "backend": "sapi"}
+
+
 def xtts_available() -> bool:
     try:
         import TTS  # noqa: F401
@@ -28,7 +46,7 @@ def xtts_available() -> bool:
 
 
 def capabilities() -> dict:
-    return {"piper": piper_available(), "xtts": xtts_available()}
+    return {"piper": piper_available(), "xtts": xtts_available(), "sapi": sapi_available()}
 
 
 def _synth_piper(text: str, out_path: str, voice_model: Optional[str]) -> dict:
@@ -58,17 +76,21 @@ def synthesize(text: str, out_path: str, *, backend: str = "auto",
     """
     if backend == "auto":
         if speaker_wav and xtts_available():
-            backend = "xtts"
+            backend = "xtts"           # voice cloning when a reference is given
         elif piper_available():
-            backend = "piper"
+            backend = "piper"          # best CPU neural voice
+        elif sapi_available():
+            backend = "sapi"           # offline OS voice — always works
         elif xtts_available():
             backend = "xtts"
         else:
             raise RuntimeError(
-                "no local TTS available: install Piper (pip install piper-tts) "
-                "or Coqui TTS (pip install TTS) for voice cloning")
+                "no local TTS available: install pyttsx3 (offline OS voice), "
+                "Piper (pip install piper-tts), or Coqui TTS for cloning")
     if backend == "piper":
         return _synth_piper(text, out_path, voice_model)
+    if backend == "sapi":
+        return _synth_sapi(text, out_path)
     if backend == "xtts":
         return _synth_xtts(text, out_path, speaker_wav, language)
     raise ValueError(f"unknown tts backend: {backend}")

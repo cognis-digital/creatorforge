@@ -114,6 +114,54 @@ def render(frames: List[dict], out_path: str, *, size=(1080, 1920), fps: int = 2
     raise ValueError(f"unknown video backend: {backend}")
 
 
+def render_kenburns(images: List, out_path: str, *, audio_path: Optional[str] = None,
+                    size=(1080, 1920), fps: int = 24) -> dict:
+    """Ken Burns: pan/zoom over each image, concat, and mux a voiceover.
+
+    images: list of (image_path, seconds). Alternating zoom-in/zoom-out gives
+    motion; the result is muxed to the audio track (trimmed to whichever ends
+    first). Requires ffmpeg.
+    """
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    ff = ffmpeg_exe()
+    if not ff:
+        raise RuntimeError("ken burns needs ffmpeg")
+    w, h = size
+    path = out_path if out_path.endswith(".mp4") else out_path + ".mp4"
+    with tempfile.TemporaryDirectory(prefix="cf-kb-") as tmp:
+        clips = []
+        for i, (img, secs) in enumerate(images):
+            secs = max(1.5, float(secs))
+            frames = int(secs * fps)
+            # zoom in on even scenes, out on odd — keeps the eye moving
+            z = "min(zoom+0.0012,1.35)" if i % 2 == 0 else \
+                "if(lte(zoom,1.0),1.35,max(1.001,zoom-0.0012))"
+            clip = str(Path(tmp) / f"c{i:03d}.mp4")
+            # work on a modest 1.25x canvas (not 2x) — zoompan stays smooth but
+            # renders far faster on CPU
+            cw, ch = int(w * 1.25), int(h * 1.25)
+            vf = (f"scale={cw}:{ch}:force_original_aspect_ratio=increase,"
+                  f"crop={cw}:{ch},"
+                  f"zoompan=z='{z}':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+                  f"s={w}x{h}:fps={fps},format=yuv420p")
+            subprocess.run([ff, "-y", "-loop", "1", "-t", str(secs), "-i", img,
+                            "-vf", vf, "-r", str(fps), clip],
+                           check=True, capture_output=True, text=True)
+            clips.append(clip)
+        lf = Path(tmp) / "list.txt"
+        lf.write_text("\n".join(f"file '{Path(c).as_posix()}'" for c in clips), encoding="utf-8")
+        base = [ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lf)]
+        if audio_path:
+            base += ["-i", audio_path, "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-shortest"]
+        base += ["-c:v", "libx264", "-pix_fmt", "yuv420p", path]
+        subprocess.run(base, check=True, capture_output=True, text=True)
+    return {"path": path, "backend": "kenburns", "clips": len(images),
+            "seconds": round(sum(max(1.5, float(s)) for _, s in images), 1)}
+
+
 def text2video_backend() -> Optional[str]:
     """Detect a local open text-to-video model, if the GPU can run one."""
     from .hardware import recommend
