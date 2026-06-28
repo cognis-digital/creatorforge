@@ -152,6 +152,72 @@ def openverse_search(query: str, k: int = 6, license_type: str = "cc0,pdm,by") -
     return out
 
 
+def _key(*names):
+    import os
+    for n in names:
+        v = os.environ.get(n)
+        if v:
+            return v
+    return None
+
+
+def pexels_search(query: str, k: int = 6, kind: str = "photos") -> List[Asset]:
+    """Pexels photos or videos (free, no watermark). Needs $PEXELS_API_KEY.
+
+    Returns [] (not an error) when no key is set, so callers degrade gracefully.
+    """
+    import urllib.parse
+    import urllib.request
+    key = _key("PEXELS_API_KEY", "PEXELS_KEY")
+    if not key:
+        return []
+    base = "https://api.pexels.com/videos/search" if kind == "videos" else "https://api.pexels.com/v1/search"
+    url = base + "?" + urllib.parse.urlencode({"query": query, "per_page": k})
+    try:
+        req = urllib.request.Request(url, headers={"Authorization": key})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read())
+    except Exception:
+        return []
+    out = []
+    if kind == "videos":
+        for v in data.get("videos", [])[:k]:
+            files = sorted(v.get("video_files", []), key=lambda f: (f.get("width") or 0), reverse=True)
+            hd = next((f for f in files if (f.get("width") or 0) <= 1920), files[0] if files else None)
+            if hd:
+                out.append(Asset("pexels-video", hd["link"], 1.0,
+                                 license="Pexels License (free, attribution appreciated)",
+                                 attribution=f'Video by {v.get("user",{}).get("name","")} on Pexels'))
+    else:
+        for p in data.get("photos", [])[:k]:
+            out.append(Asset("pexels", p.get("src", {}).get("large2x") or p.get("src", {}).get("original", ""),
+                             1.0, license="Pexels License (free, attribution appreciated)",
+                             attribution=f'Photo by {p.get("photographer","")} on Pexels'))
+    return out
+
+
+def unsplash_search(query: str, k: int = 6) -> List[Asset]:
+    """Unsplash photos (free, no watermark). Needs $UNSPLASH_ACCESS_KEY."""
+    import urllib.parse
+    import urllib.request
+    key = _key("UNSPLASH_ACCESS_KEY", "UNSPLASH_KEY")
+    if not key:
+        return []
+    url = "https://api.unsplash.com/search/photos?" + urllib.parse.urlencode({"query": query, "per_page": k})
+    try:
+        req = urllib.request.Request(url, headers={"Authorization": f"Client-ID {key}"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.loads(r.read())
+    except Exception:
+        return []
+    out = []
+    for p in data.get("results", [])[:k]:
+        out.append(Asset("unsplash", p.get("urls", {}).get("regular", ""), 1.0,
+                         license="Unsplash License (free; attribution appreciated)",
+                         attribution=f'Photo by {p.get("user",{}).get("name","")} on Unsplash'))
+    return out
+
+
 def download(asset: Asset, outdir: str) -> Optional[str]:
     """Download a remote asset locally; local assets are returned as-is."""
     if asset.source == "local":
@@ -171,10 +237,24 @@ def download(asset: Asset, outdir: str) -> Optional[str]:
 
 def gather(query: str, k: int = 6, *, library: Optional[LocalLibrary] = None,
            online: bool = False) -> List[Asset]:
-    """Gather multiple related no-watermark images, offline library first."""
+    """Gather multiple related no-watermark images, offline library first, then
+    free online sources (Unsplash, Pexels, Openverse) when online + keys set."""
     out: List[Asset] = []
     if library is not None:
         out.extend(library.search(query, k))
-    if online and len(out) < k:
-        out.extend(openverse_search(query, k - len(out)))
+    if online:
+        for src in (unsplash_search, lambda q, n: pexels_search(q, n, "photos"), openverse_search):
+            if len(out) >= k:
+                break
+            out.extend(src(query, k - len(out)))
     return out[:k]
+
+
+def stock(query: str, photos: int = 4, videos: int = 2) -> List[Asset]:
+    """Free, no-watermark stock for b-roll: Unsplash + Pexels photos and Pexels
+    videos. Returns [] until PEXELS_API_KEY / UNSPLASH_ACCESS_KEY are set."""
+    res: List[Asset] = []
+    res += unsplash_search(query, photos)
+    res += pexels_search(query, photos, "photos")
+    res += pexels_search(query, videos, "videos")
+    return res
