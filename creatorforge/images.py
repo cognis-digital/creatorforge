@@ -188,13 +188,17 @@ def get_image_backend(prefer: str = "auto", host: str = "http://127.0.0.1:7860")
 
 
 def generate_thumbnail(concept: dict, out_path: str, *, backend: Optional[ImageBackend] = None,
-                       width: int = 1280, height: int = 720, allow_raster: bool = True) -> dict:
+                       width: int = 1280, height: int = 720, allow_raster: bool = True,
+                       hero: Optional[str] = None) -> dict:
     """Render a concept to the best image this machine can make.
 
-    Order: a diffusion backend (photorealistic, GPU) → a PIL raster PNG (real
-    composited image, CPU) → an SVG mockup (always). out_path is a base; the
-    file gets .png or .svg appended.
+    Order: a real **sourced hero photo** composited + graded (punches above CPU
+    diffusion) → a diffusion backend (photorealistic, GPU) → a PIL raster PNG →
+    an SVG mockup (always). out_path is a base; the file gets .png or .svg added.
     """
+    if hero and _pil_available():
+        from .compose import compose_thumbnail
+        return compose_thumbnail(hero, concept, out_path, width=width, height=height)
     backend = backend if backend is not None else get_image_backend()
     if backend is not None and backend.available:
         png = backend.generate(thumbnail_prompt(concept), width, height)

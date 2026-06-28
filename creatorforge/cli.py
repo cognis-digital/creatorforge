@@ -23,6 +23,7 @@ from . import (__version__, audio as _audio, audiogen as _audiogen,
                transcribe as _transcribe, tts as _tts)
 from .calendar import build_calendar
 from .capabilities import capabilities
+from . import assets as _assets
 from .formats import FORMATS
 from .longform import LongformBrief, build_longform
 from .styles import STYLES, list_styles
@@ -163,10 +164,46 @@ def cmd_voiceover(args) -> int:
     return 0
 
 
+def _load_library(spec: str):
+    """A library index .json, or a directory to index on the fly."""
+    from pathlib import Path
+    if not spec:
+        return None
+    if Path(spec).is_dir():
+        return _assets.LocalLibrary().index([spec])
+    return _assets.LocalLibrary.load(spec)
+
+
+def _hero_for(args, topic: str):
+    """Resolve a hero photo: explicit --hero, else best match from --assets."""
+    if getattr(args, "hero", None):
+        return args.hero
+    lib_spec = getattr(args, "assets", None)
+    if lib_spec:
+        lib = _load_library(lib_spec)
+        hits = lib.search(topic, 1) if lib else []
+        if hits:
+            return hits[0].ref
+    return None
+
+
 def cmd_image(args) -> int:
     concept = thumbnail_concepts(args.topic, _voice(args), 1)[0]
     backend = None if args.backend == "auto" else get_image_backend(args.backend)
-    _print(generate_thumbnail(concept, args.out, backend=backend))
+    _print(generate_thumbnail(concept, args.out, backend=backend,
+                              hero=_hero_for(args, args.topic)))
+    return 0
+
+
+def cmd_assets(args) -> int:
+    if args.asub == "index":
+        lib = _assets.LocalLibrary().index(args.paths, caption=args.caption)
+        lib.save(args.out)
+        _print({"indexed": len(lib), "out": args.out})
+    elif args.asub == "search":
+        lib = _load_library(args.index)
+        hits = _assets.gather(args.query, args.k, library=lib, online=args.online)
+        _print({"query": args.query, "results": [a.as_dict() for a in hits]})
     return 0
 
 
@@ -193,7 +230,8 @@ def cmd_produce(args) -> int:
     outdir.mkdir(parents=True, exist_ok=True)
 
     assets = {}
-    assets["thumbnail"] = generate_thumbnail(result["thumbnails"][0], str(outdir / "thumbnail"))
+    assets["thumbnail"] = generate_thumbnail(result["thumbnails"][0], str(outdir / "thumbnail"),
+                                             hero=_hero_for(args, args.topic))
     assets["video"] = render_video(storyboard(result["script"]), str(outdir / "short"))
     assets["audio"] = _audio.produce(str(outdir / "track"),
                                      seconds=result["script"]["est_seconds"])
@@ -249,7 +287,8 @@ def cmd_studio(args) -> int:
     video = render_video(frames, str(outdir / "longform"), size=(1280, 720))
     music = _audiogen.generate_music(plan["style"]["music_mood"], plan["runtime_seconds"],
                                      str(outdir / "music"))
-    thumb = generate_thumbnail(plan["thumbnail_concepts"][0], str(outdir / "thumbnail"))
+    thumb = generate_thumbnail(plan["thumbnail_concepts"][0], str(outdir / "thumbnail"),
+                               hero=_hero_for(args, args.topic))
     (outdir / "plan.json").write_text(json.dumps(plan, indent=2, default=str), encoding="utf-8")
 
     _print({"outdir": str(outdir), "runtime_seconds": plan["runtime_seconds"],
@@ -339,6 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
     pst.add_argument("--minutes", type=float, default=None)
     pst.add_argument("--niche", default=""); pst.add_argument("--audience", default="people")
     pst.add_argument("--provider", default="template"); pst.add_argument("--model", default="auto")
+    pst.add_argument("--hero", default=None); pst.add_argument("--assets", default=None)
     pst.add_argument("--out", default="studio_out")
     pst.set_defaults(func=cmd_studio)
 
@@ -353,10 +393,20 @@ def build_parser() -> argparse.ArgumentParser:
     pvo.add_argument("--voice-model", dest="voice_model"); pvo.add_argument("--speaker")
     pvo.set_defaults(func=cmd_voiceover)
 
-    pim = sub.add_parser("image", help="generate a thumbnail image (diffusion/raster/svg)")
+    pim = sub.add_parser("image", help="generate a thumbnail (sourced photo / diffusion / raster / svg)")
     pim.add_argument("--topic", required=True); pim.add_argument("--voice"); pim.add_argument("--out", required=True)
     pim.add_argument("--backend", default="auto", choices=["auto", "automatic1111", "diffusers"])
+    pim.add_argument("--hero", default=None, help="compose over this real photo")
+    pim.add_argument("--assets", default=None, help="library index .json or dir; auto-sources a hero")
     pim.set_defaults(func=cmd_image)
+
+    pas = sub.add_parser("assets", help="index/search a local no-watermark image library")
+    asub = pas.add_subparsers(dest="asub", required=True)
+    ai = asub.add_parser("index"); ai.add_argument("paths", nargs="+"); ai.add_argument("--out", required=True)
+    ai.add_argument("--caption", action="store_true", help="caption each image with local llava (slow)")
+    asr = asub.add_parser("search"); asr.add_argument("query"); asr.add_argument("--index", required=True)
+    asr.add_argument("-k", type=int, default=6); asr.add_argument("--online", action="store_true")
+    pas.set_defaults(func=cmd_assets)
 
     pvi = sub.add_parser("video", help="produce a short video from a script")
     pvi.add_argument("--topic", required=True); pvi.add_argument("--voice"); pvi.add_argument("--out", required=True)
@@ -377,6 +427,7 @@ def build_parser() -> argparse.ArgumentParser:
     ppr.add_argument("--audience", default="people")
     ppr.add_argument("--platforms", default="youtube,tiktok,x")
     ppr.add_argument("--provider", default="template"); ppr.add_argument("--model", default="auto")
+    ppr.add_argument("--hero", default=None); ppr.add_argument("--assets", default=None)
     ppr.add_argument("--out", default="production")
     ppr.set_defaults(func=cmd_produce)
 

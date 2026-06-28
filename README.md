@@ -137,6 +137,30 @@ Generative **music and sound effects** come from local open models (MusicGen / A
 
 > **On "Netflix-level":** creatorforge plans and directs at that structural level — story structure, shot lists, pacing, sound design, retention engineering — and assembles the cut with whatever render models you have. Cinema-grade *footage and audio* come from the heavy open models (FLUX / LTX-Video / MusicGen / XTTS) on a capable GPU, which the engine drives; on a laptop you still get a complete, correctly-structured cut with real generated assets. The structure is studio-grade everywhere; the render fidelity scales with your hardware.
 
+## Punch above your weight class: real photos, designed
+
+You don't beat a giant cloud image model on a laptop by out-rendering it — you **out-source and out-design** it. creatorforge pulls *real, no-watermark* photography and composites it into pro visuals, which reads as more professional than weak CPU diffusion ever will.
+
+- **Your own library, offline.** Index image folders you already have and search them by keyword — multiple related shots per scene, your images, zero watermarks, zero licensing questions. Optionally caption them with local `llava` for smarter matching.
+- **Free, no-key, no-watermark CC stock.** Openverse / Wikimedia Commons, each result carrying its license + attribution so you stay compliant. Watermarked sources (Getty/Shutterstock previews) are never queried.
+- **Designed, not dumped.** A sourced hero photo gets cover-cropped, color-graded, given a legibility scrim, and set with a bold headline — a real editor's thumbnail.
+
+```bash
+# build an offline, searchable index of your image folders (your own = no watermark)
+creatorforge assets index ~/Pictures ~/b-roll --out assets.json
+
+# pull multiple related, key shots for a scene
+creatorforge assets search "datacenter server racks" --index assets.json -k 6
+creatorforge assets search "founder at laptop" --index assets.json --online   # + free CC stock
+
+# build a thumbnail composited over a real sourced photo
+creatorforge image --topic "owning your AI stack" --assets assets.json --out thumb
+# studio/produce auto-source a hero from your library:
+creatorforge studio --topic "..." --format documentary --assets assets.json --out ./film/
+```
+
+> Licensing, honestly: your own library is yours. Openverse/Wikimedia results are Creative Commons / public-domain and **may require attribution** — creatorforge surfaces the license and attribution string with every result so you can credit correctly. It never pulls watermarked or paid-preview imagery.
+
 ## Wire it into your stack (MCP)
 
 creatorforge ships an **MCP server**, so Claude, an internal orchestrator, or any MCP-capable agent can drive it directly:
@@ -151,7 +175,7 @@ Tools: `profile_voice`, `generate_ideas`, `write_hooks`, `write_script`, `thumbn
 
 ```bash
 pip install -e ".[dev]"
-pytest -q          # 36 tests
+pytest -q          # 43 tests
 ```
 
 ## License
