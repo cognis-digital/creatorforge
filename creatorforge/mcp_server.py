@@ -14,6 +14,7 @@ from typing import Any, Callable, Optional, TextIO
 
 from .hooks import write_hooks
 from .ideas import generate_ideas
+from .longform import LongformBrief, build_longform
 from .pipeline import ContentBrief, run_pipeline
 from .platforms import PLATFORMS, package
 from .script import write_script
@@ -63,6 +64,13 @@ class Tools:
                              platforms=platforms or ["youtube", "tiktok", "x"])
         return run_pipeline(brief, _voice(voice))
 
+    def build_longform(self, topic: str, format: str = "documentary",
+                       style: Optional[str] = None, minutes: Optional[float] = None,
+                       niche: str = "", voice: Optional[dict] = None) -> dict:
+        brief = LongformBrief(topic=topic, format=format, style=style,
+                              target_minutes=minutes, niche=niche)
+        return build_longform(brief, _voice(voice))
+
 
 TOOL_SPECS = [
     ("profile_voice", "Learn a voice profile from a list of the creator's past posts.",
@@ -86,6 +94,12 @@ TOOL_SPECS = [
      {"topic": {"type": "string"}, "niche": {"type": "string"},
       "platforms": {"type": "array", "items": {"type": "string"}},
       "voice": {"type": "object"}}, ["topic"]),
+    ("build_longform", "Build a 5-15 min cinematic production plan (scenes, shots, "
+     "narration, chapters, sound cue sheet) for a format and style.",
+     {"topic": {"type": "string"},
+      "format": {"type": "string", "enum": ["documentary", "video_essay", "devlog", "promotional"]},
+      "style": {"type": "string"}, "minutes": {"type": "number"},
+      "niche": {"type": "string"}, "voice": {"type": "object"}}, ["topic"]),
 ]
 
 

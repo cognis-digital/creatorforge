@@ -19,6 +19,7 @@ from .voice import VoiceProfile, analyze
 from .providers import Provider, TemplateProvider, OllamaProvider, get_provider
 from .platforms import PLATFORMS, platform_spec
 from .pipeline import ContentBrief, run_pipeline
+from .longform import LongformBrief, build_longform
 from .hardware import detect, recommend
 from .capabilities import capabilities
 
@@ -28,6 +29,7 @@ __all__ = [
     "Provider", "TemplateProvider", "OllamaProvider", "get_provider",
     "PLATFORMS", "platform_spec",
     "ContentBrief", "run_pipeline",
+    "LongformBrief", "build_longform",
     "detect", "recommend", "capabilities",
     "__version__",
 ]

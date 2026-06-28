@@ -19,9 +19,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from . import __version__, audio as _audio, transcribe as _transcribe, tts as _tts
+from . import (__version__, audio as _audio, audiogen as _audiogen,
+               transcribe as _transcribe, tts as _tts)
 from .calendar import build_calendar
 from .capabilities import capabilities
+from .formats import FORMATS
+from .longform import LongformBrief, build_longform
+from .styles import STYLES, list_styles
 from .hooks import write_hooks
 from .ideas import generate_ideas
 from .images import generate_thumbnail, get_image_backend
@@ -203,6 +207,57 @@ def cmd_produce(args) -> int:
     return 0
 
 
+def cmd_formats(args) -> int:
+    _print({name: {"default_minutes": f["default_minutes"], "default_style": f["default_style"],
+                   "beats": [b[0] for b in f["beats"]]} for name, f in FORMATS.items()})
+    return 0
+
+
+def cmd_styles(args) -> int:
+    _print({name: {"music_mood": STYLES[name]["music_mood"],
+                   "homage": STYLES[name]["homage"]} for name in list_styles()})
+    return 0
+
+
+def cmd_longform(args) -> int:
+    brief = LongformBrief(topic=args.topic, format=args.format, style=args.style,
+                          target_minutes=args.minutes, niche=args.niche, audience=args.audience)
+    plan = build_longform(brief, _voice(args), _provider(args))
+    if args.out:
+        from pathlib import Path
+        Path(args.out).write_text(json.dumps(plan, indent=2, default=str), encoding="utf-8")
+    _print({"format": args.format, "style": plan["brief"]["style"],
+            "runtime_seconds": plan["runtime_seconds"], "scenes": len(plan["scenes"]),
+            "chapters": [c["label"] for c in plan["chapters"]],
+            "narration_words": plan["narration_word_count"], "out": args.out})
+    return 0
+
+
+def cmd_studio(args) -> int:
+    from pathlib import Path
+    voice = _voice(args)
+    brief = LongformBrief(topic=args.topic, format=args.format, style=args.style,
+                          target_minutes=args.minutes, niche=args.niche, audience=args.audience)
+    plan = build_longform(brief, voice, _provider(args))
+    outdir = Path(args.out)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    frames = [{"text": c["label"].upper(), "seconds": s["seconds"], "role": "beat"}
+              for c, s in zip(plan["chapters"], plan["scenes"])]
+    if frames:
+        frames[0]["role"] = "hook"
+    video = render_video(frames, str(outdir / "longform"), size=(1280, 720))
+    music = _audiogen.generate_music(plan["style"]["music_mood"], plan["runtime_seconds"],
+                                     str(outdir / "music"))
+    thumb = generate_thumbnail(plan["thumbnail_concepts"][0], str(outdir / "thumbnail"))
+    (outdir / "plan.json").write_text(json.dumps(plan, indent=2, default=str), encoding="utf-8")
+
+    _print({"outdir": str(outdir), "runtime_seconds": plan["runtime_seconds"],
+            "scenes": len(plan["scenes"]), "video": video, "music": music,
+            "thumbnail": thumb, "title_options": plan["title_options"][:3]})
+    return 0
+
+
 def cmd_serve(args) -> int:
     from .mcp_server import MCPServer
     print("creatorforge MCP server over stdio", file=sys.stderr)
@@ -264,6 +319,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("capabilities", help="report which local models/backends are available")\
         .set_defaults(func=cmd_capabilities)
+    sub.add_parser("formats", help="list long-form formats").set_defaults(func=cmd_formats)
+    sub.add_parser("styles", help="list cinematic styles").set_defaults(func=cmd_styles)
+
+    plf = sub.add_parser("longform", help="build a 5-15 min cinematic production plan")
+    plf.add_argument("--topic", required=True); plf.add_argument("--voice")
+    plf.add_argument("--format", default="documentary", choices=list(FORMATS))
+    plf.add_argument("--style", default=None, choices=list(STYLES))
+    plf.add_argument("--minutes", type=float, default=None)
+    plf.add_argument("--niche", default=""); plf.add_argument("--audience", default="people")
+    plf.add_argument("--provider", default="template"); plf.add_argument("--model", default="auto")
+    plf.add_argument("--out", default=None)
+    plf.set_defaults(func=cmd_longform)
+
+    pst = sub.add_parser("studio", help="full long-form production: plan + video + music + thumbnail")
+    pst.add_argument("--topic", required=True); pst.add_argument("--voice")
+    pst.add_argument("--format", default="documentary", choices=list(FORMATS))
+    pst.add_argument("--style", default=None, choices=list(STYLES))
+    pst.add_argument("--minutes", type=float, default=None)
+    pst.add_argument("--niche", default=""); pst.add_argument("--audience", default="people")
+    pst.add_argument("--provider", default="template"); pst.add_argument("--model", default="auto")
+    pst.add_argument("--out", default="studio_out")
+    pst.set_defaults(func=cmd_studio)
 
     ptr = sub.add_parser("transcribe", help="transcribe audio/video with local Whisper")
     ptr.add_argument("audio"); ptr.add_argument("--model", default=None)

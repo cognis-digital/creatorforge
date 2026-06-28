@@ -115,6 +115,28 @@ creatorforge produce --topic "owning your AI stack" --niche "AI for business" \
     --provider ollama --out ./production/
 ```
 
+## Long-form & cinematic production (5–15 min)
+
+Short clips are one mode. creatorforge also plans and assembles **long-form** video — documentaries, video essays, dev logs, promos — structured the way the industry actually does it. It fuses four things:
+
+- a **format** (`creatorforge formats`) — the proven beat order for documentary / video-essay / devlog / promo
+- a **cinematic style** (`creatorforge styles`) — pacing, shot vocabulary, color, and music mood drawn from the grammar of prestige docs, kinetic vlogs, trailer-cut blockbusters, slow-burn arthouse, true-crime, and more
+- the **algorithm playbook** — what each platform actually rewards (watch time / AVD, completion rate, the first-30s hook, re-hooks every ~40s, chapters) turned into concrete production directives
+- your **voice** (+ an optional local model to polish the narration)
+
+…into a full plan: acts → scenes → timed shots → narration → chapters → a music & SFX cue sheet → titles and thumbnails, sized to your target runtime.
+
+```bash
+creatorforge formats        # documentary, video_essay, devlog, promotional
+creatorforge styles         # epic_doc, true_crime, kinetic_vlog, blockbuster, arthouse_slowburn, …
+creatorforge longform --topic "owning your AI stack" --format documentary --style epic_doc --minutes 12 --out plan.json
+creatorforge studio   --topic "owning your AI stack" --format documentary --minutes 10 --provider ollama --out ./film/
+```
+
+Generative **music and sound effects** come from local open models (MusicGen / AudioGen) when your GPU can run them, with a synthesized bed as a fallback so a cut always has a track.
+
+> **On "Netflix-level":** creatorforge plans and directs at that structural level — story structure, shot lists, pacing, sound design, retention engineering — and assembles the cut with whatever render models you have. Cinema-grade *footage and audio* come from the heavy open models (FLUX / LTX-Video / MusicGen / XTTS) on a capable GPU, which the engine drives; on a laptop you still get a complete, correctly-structured cut with real generated assets. The structure is studio-grade everywhere; the render fidelity scales with your hardware.
+
 ## Wire it into your stack (MCP)
 
 creatorforge ships an **MCP server**, so Claude, an internal orchestrator, or any MCP-capable agent can drive it directly:
@@ -129,11 +151,11 @@ Tools: `profile_voice`, `generate_ideas`, `write_hooks`, `write_script`, `thumbn
 
 ```bash
 pip install -e ".[dev]"
-pytest -q          # 29 tests
+pytest -q          # 36 tests
 ```
 
 ## License
 
 Apache-2.0. © Cognis Digital. The whole engine is open — read it, fork it, run it on your own models. You own your content team.
 
-> Status: v0.1 — runnable and tested. Text, transcription, voice, image, video, and audio backends are wired with hardware-aware selection and CPU fallbacks. Roadmap: ComfyUI image/video backend, A/B title scoring, scheduled auto-publish, more hook/idea formula packs.
+> Status: v0.1 — runnable and tested. Short-form + long-form (5–15 min) production; text, transcription, voice, image, video, music/SFX backends wired with hardware-aware selection and CPU fallbacks; format/style/algorithm intelligence baked in. Roadmap: ComfyUI image/video backend, true text-to-video assembly, A/B title scoring, scheduled auto-publish.
