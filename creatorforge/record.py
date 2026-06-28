@@ -138,3 +138,66 @@ def render_terminal(captures: List[Capture], out_path: str, *, audio_path: Optio
     subprocess.run(cmd, check=True, capture_output=True, text=True)
     return {"path": path, "backend": "terminal-cast", "frames": fi,
             "seconds": round(fi / fps, 1), "captures": len(captures)}
+
+
+def render_film(segments: List, out_path: str, *, audio_path: Optional[str] = None,
+                size=(1280, 720), fps: int = 12, lines_per_sec: float = 2.5) -> dict:
+    """Render an engaging film from a mixed segment list.
+
+    Each segment is either:
+      ("card", text, seconds[, role])  — a full-screen title/chapter/hook card
+      ("term", Capture)                — a real command's output, revealed live
+
+    Cards give the MrBeast structure (hook, chapters as pattern-interrupts,
+    payoff, outro); terminal segments are the real proof. Encodes from a flat
+    PNG sequence so it stays fast on CPU.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from .video import _render_frame  # designed title-card renderer
+
+    if not _pil_available():
+        raise RuntimeError("film render needs Pillow")
+    ff = ffmpeg_exe()
+    if not ff:
+        raise RuntimeError("film render needs ffmpeg")
+    w, h = size
+    font = _term_font(max(16, w // 64))
+    max_rows = (h - 70) // (font.size + 6)
+    frames_dir = tempfile.mkdtemp(prefix="cf-film-")
+    fi = 0
+    step = max(1, int(round(fps / lines_per_sec)))
+
+    for seg in segments:
+        if seg[0] == "card":
+            text = seg[1]
+            secs = seg[2] if len(seg) > 2 else 2.5
+            role = seg[3] if len(seg) > 3 else "beat"
+            img = _render_frame(text, size, role)
+            for _ in range(int(secs * fps)):
+                img.save(f"{frames_dir}/f{fi:05d}.png")
+                fi += 1
+        else:  # ("term", Capture)
+            cap = seg[1]
+            stream = cap.lines() + [""]
+            for reveal in range(1, len(stream) + 1):
+                window = stream[max(0, reveal - max_rows):reveal]
+                img = _frame(window, size, font, cap.title)
+                for _ in range(step):
+                    img.save(f"{frames_dir}/f{fi:05d}.png")
+                    fi += 1
+            for _ in range(int(fps * 1.0)):  # brief hold on the final output
+                img.save(f"{frames_dir}/f{fi:05d}.png")
+                fi += 1
+
+    video_seconds = fi / fps
+    cmd = [ff, "-y", "-framerate", str(fps), "-i", f"{frames_dir}/f%05d.png"]
+    if audio_path:
+        cmd += ["-i", audio_path, "-map", "0:v", "-map", "1:a", "-c:a", "aac",
+                "-t", f"{video_seconds:.2f}"]
+    cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps), path := (
+        out_path if out_path.endswith(".mp4") else out_path + ".mp4")]
+    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    return {"path": path, "backend": "film", "frames": fi,
+            "seconds": round(video_seconds, 1), "segments": len(segments)}
