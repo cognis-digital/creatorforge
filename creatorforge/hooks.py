@@ -57,11 +57,13 @@ def _polish(hooks: List[dict], voice: VoiceProfile, provider: Provider) -> List[
         instruction=(f"Rewrite each of these {len(hooks)} short video hooks to be punchier "
                      f"and more scroll-stopping, in the creator's voice. Return ONLY {len(hooks)} "
                      f"numbered lines, one hook per line, no preamble or commentary."))
+    # accept ONLY genuinely numbered lines — this drops any LLM preamble
+    # ("Here are the rewritten hooks:") or trailing commentary.
     lines = []
     for ln in out.splitlines():
-        ln = re.sub(r"^\s*\d+[.)]\s*", "", ln).strip().strip('"').strip("*")
-        if ln:
-            lines.append(ln)
+        m = re.match(r"^\s*\d+[.)]\s*(.+)$", ln)
+        if m:
+            lines.append(m.group(1).strip().strip('"').strip("*").strip())
     if len(lines) >= len(hooks):  # only accept a clean, full rewrite
         return [{**h, "hook": lines[i]} for i, h in enumerate(hooks)]
     return hooks

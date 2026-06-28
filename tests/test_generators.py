@@ -36,6 +36,25 @@ def test_hooks_polished_by_provider():
     assert sharp[0]["formula"] == base[0]["formula"]   # metadata preserved
 
 
+class _PreambleProvider:
+    name = "fake2"
+    available = True
+
+    def rewrite(self, text, voice, instruction=""):
+        n = len(text.splitlines())
+        body = "\n".join(f"{i + 1}. SHARP line {i}" for i in range(n))
+        return "Here are the rewritten video hooks:\n" + body + "\nHope these help!"
+
+
+def test_hooks_ignore_llm_preamble_and_chatter():
+    sharp = write_hooks("x", VoiceProfile(), 4, provider=_PreambleProvider())
+    assert len(sharp) == 4
+    assert all(h["hook"].startswith("SHARP line") for h in sharp)
+    # preamble/closing chatter must not leak in as a "hook"
+    assert not any("rewritten" in h["hook"].lower() or "help" in h["hook"].lower()
+                   for h in sharp)
+
+
 def test_hooks_template_provider_is_noop():
     from creatorforge.providers import TemplateProvider
     base = write_hooks("cold email", VoiceProfile(), 4)
