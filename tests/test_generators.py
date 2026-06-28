@@ -17,6 +17,32 @@ def test_hooks_count_and_topic():
     assert all("formula" in h for h in hooks)
 
 
+class _FakeProvider:
+    name = "fake"
+    available = True
+
+    def rewrite(self, text, voice, instruction=""):
+        # echo the same number of lines, transformed — simulates an LLM rewrite
+        return "\n".join(f"{i + 1}. SHARP {ln.split('. ', 1)[-1]}"
+                         for i, ln in enumerate(text.splitlines()))
+
+
+def test_hooks_polished_by_provider():
+    base = write_hooks("cold email", VoiceProfile(), 4)
+    sharp = write_hooks("cold email", VoiceProfile(), 4, provider=_FakeProvider())
+    assert len(sharp) == 4
+    assert all(h["hook"].startswith("SHARP") for h in sharp)
+    assert sharp[0]["hook"] != base[0]["hook"]
+    assert sharp[0]["formula"] == base[0]["formula"]   # metadata preserved
+
+
+def test_hooks_template_provider_is_noop():
+    from creatorforge.providers import TemplateProvider
+    base = write_hooks("cold email", VoiceProfile(), 4)
+    same = write_hooks("cold email", VoiceProfile(), 4, provider=TemplateProvider())
+    assert [h["hook"] for h in base] == [h["hook"] for h in same]
+
+
 def test_hooks_apply_voice_styling():
     hooks = write_hooks("cold email", emoji_voice(), n=3)
     # emoji-heavy + energetic voice -> emoji prefix and emphatic punctuation

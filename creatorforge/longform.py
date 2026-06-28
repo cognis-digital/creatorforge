@@ -144,7 +144,8 @@ def build_longform(brief: LongformBrief, voice: Optional[VoiceProfile] = None,
     interrupt = notes["re_hook_every_s"]
     pattern_interrupts = [round(s) for s in _frange(interrupt, total_seconds, interrupt)]
 
-    titles = [h["hook"] for h in write_hooks(brief.topic, voice, 5, audience=brief.audience)]
+    titles = [h["hook"] for h in write_hooks(brief.topic, voice, 5, audience=brief.audience,
+                                             provider=provider)]
     thumbs = thumbnail_concepts(brief.topic, voice, 3)
 
     narration_words = sum(len(s["narration"].split()) for s in scenes)

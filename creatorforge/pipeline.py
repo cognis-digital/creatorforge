@@ -62,7 +62,8 @@ def run_pipeline(brief: ContentBrief, voice: Optional[VoiceProfile] = None,
 
     research = _research_brief(brief, voice)
     idea_list = generate_ideas(brief.niche or brief.topic, voice, brief.n_ideas)
-    hooks = write_hooks(brief.topic, voice, brief.n_hooks, audience=brief.audience)
+    hooks = write_hooks(brief.topic, voice, brief.n_hooks, audience=brief.audience,
+                        provider=provider)
     script = write_script(brief.topic, voice, primary, provider=provider)
     captions = {"overlays": to_overlays(script), "srt": to_srt(script)}
     thumbs = thumbnail_concepts(brief.topic, voice, 3)

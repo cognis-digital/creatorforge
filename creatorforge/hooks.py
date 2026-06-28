@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from typing import List, Optional
 
+from .providers import Provider, TemplateProvider
 from .voice import VoiceProfile
 
 # (label, template) — slots: topic, audience, pain, outcome, obstacle, n, keyword
@@ -46,9 +47,30 @@ def _style(text: str, voice: VoiceProfile, i: int) -> str:
     return out
 
 
+def _polish(hooks: List[dict], voice: VoiceProfile, provider: Provider) -> List[dict]:
+    """Rewrite all hooks in one LLM call (when a real provider is configured)."""
+    if isinstance(provider, TemplateProvider) or not getattr(provider, "available", False):
+        return hooks
+    numbered = "\n".join(f"{i + 1}. {h['hook']}" for i, h in enumerate(hooks))
+    out = provider.rewrite(
+        numbered, voice,
+        instruction=(f"Rewrite each of these {len(hooks)} short video hooks to be punchier "
+                     f"and more scroll-stopping, in the creator's voice. Return ONLY {len(hooks)} "
+                     f"numbered lines, one hook per line, no preamble or commentary."))
+    lines = []
+    for ln in out.splitlines():
+        ln = re.sub(r"^\s*\d+[.)]\s*", "", ln).strip().strip('"').strip("*")
+        if ln:
+            lines.append(ln)
+    if len(lines) >= len(hooks):  # only accept a clean, full rewrite
+        return [{**h, "hook": lines[i]} for i, h in enumerate(hooks)]
+    return hooks
+
+
 def write_hooks(topic: str, voice: Optional[VoiceProfile] = None, n: int = 8, *,
                 audience: str = "people", pain: str = "time and reach",
-                outcome: Optional[str] = None, obstacle: str = "a big budget") -> List[dict]:
+                outcome: Optional[str] = None, obstacle: str = "a big budget",
+                provider: Optional[Provider] = None) -> List[dict]:
     voice = voice or VoiceProfile()
     outcome = outcome or f"win with {topic}"
     slots = {"topic": topic, "audience": audience, "pain": pain,
@@ -59,4 +81,6 @@ def write_hooks(topic: str, voice: Optional[VoiceProfile] = None, n: int = 8, *,
         number = (i % 5) + 3  # 3..7, stable
         text = template.format(n=number, **slots)
         hooks.append({"hook": _style(text, voice, i), "formula": label})
+    if provider is not None:
+        hooks = _polish(hooks, voice, provider)
     return hooks
