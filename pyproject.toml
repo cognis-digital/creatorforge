@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "creatorforge"
+version = "0.1.0"
+description = "The AI content team you own: voice-trained research, hooks, scripts, captions, thumbnails, and multi-platform packaging — offline by default, your model when you want it."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Cognis Digital" }]
+keywords = ["content", "ai", "creator", "social-media", "scriptwriting", "hooks", "thumbnails", "mcp", "marketing"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Topic :: Multimedia",
+  "Topic :: Office/Business",
+]
+dependencies = []  # standard library only; optional local model via Ollama
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+creatorforge = "creatorforge.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/cognis-digital/creatorforge"
+
+[tool.setuptools]
+packages = ["creatorforge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

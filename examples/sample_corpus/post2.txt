@@ -1,0 +1,9 @@
+I shipped 6 security tools in a week. Here's what I learned. ⚡
+
+Small beats big. Every tool does ONE thing.
+
+No dependencies. Runs on your hardware. You own it.
+
+That's the whole pitch. Boring on purpose.
+
+Comment "STACK" and I'll send you the list. 🛡️

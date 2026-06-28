@@ -1,0 +1,101 @@
+# creatorforge
+
+**The AI content team you _own_ — not one you rent for $15K/month.**
+
+---
+
+Business owner? Creator? Ask yourself:
+
+- Are you paying (or about to pay) **five figures a month** for a "done-for-you AI content team"?
+- Does that team's "proprietary system" run on **someone else's servers**, with your voice, audience, and data living there?
+- When the retainer ends, do you **keep anything** — or does the system walk out the door with them?
+- Do you actually want to film 2–4 hours a week and have everything else handled — **without renting the engine that does it**?
+
+If you nodded, here's the deal: `creatorforge` is that content team, as **open software you own and run yourself**. No retainer. No 50-spots-only. No "proprietary" black box. It's free, Apache-2.0, and runs on *your* hardware and *your* model.
+
+## What you get
+
+The same deliverables an agency installs — generated from one command:
+
+- **Voice profile** — it learns your style from your past posts (no model training, nothing uploaded — just measurable style features).
+- **Niche research brief** — content pillars, audience pains, keyword targets.
+- **Content ideas** — a steady pipeline of format × angle ideas so you never face a blank page.
+- **Hooks** — proven scroll-stopping formulas, written in your voice.
+- **Scripts** — full, structured scripts sized to each platform.
+- **Captions** — on-screen overlay text + timed SRT subtitles.
+- **Thumbnail concepts** — headline / visual / emotion / layout, **rendered as actual SVG mockups**.
+- **Multi-platform packaging** — one idea, tailored for YouTube, Shorts, TikTok, Reels, X, and LinkedIn (each platform's limits respected).
+- **Posting calendar** — your ideas scheduled at your cadence.
+
+You film. creatorforge does the rest.
+
+## How it's different (the honest version)
+
+| | The agency offer | **creatorforge** |
+|---|---|---|
+| Price | ~$15K/month retainer | **free, open source** |
+| Where it runs | their cloud | **your hardware** |
+| Your voice/data | lives on their system | **never leaves your machine** |
+| When it ends | you keep nothing | **you own it forever** |
+| The "system" | proprietary black box | **readable code you can audit** |
+| Results promised | "1 billion views" | **a great engine — the views are on you** |
+
+No inflated view-count promises here. creatorforge gives you a genuinely strong content *system*; what it can't do is guarantee virality, and anyone who guarantees that is selling something. It runs **fully offline** on a deterministic engine, and gets sharper the moment you point it at a local model (Ollama) or a cloud one — your call.
+
+## Quick start
+
+```bash
+pip install -e .
+
+# 1. Learn your voice from a folder of your past posts/scripts
+creatorforge profile ./my_posts/ --out voice.json
+
+# 2. Run the whole team on a topic, across your platforms
+creatorforge pipeline --topic "why you should own your AI stack" \
+    --niche "AI for business" --platforms youtube,tiktok,x,linkedin \
+    --voice voice.json --start 2026-07-06 --out plan.json
+
+# Or one piece at a time
+creatorforge hooks    --topic "cold email that converts" --voice voice.json
+creatorforge script   --topic "cold email that converts" --platform youtube_shorts --voice voice.json
+creatorforge thumbnail --topic "cold email that converts" --svg thumb     # writes thumb-1.svg …
+
+# Use your own local model to sharpen the prose (nothing leaves your machine)
+creatorforge script --topic "..." --provider ollama --model llama3
+```
+
+Run `python demo.py` to watch it learn a voice and generate a full multi-platform plan end to end.
+
+## Platforms
+
+| Platform | Aspect | Sweet spot | Tailored output |
+|----------|--------|-----------|-----------------|
+| YouTube | 16:9 | ~10 min | title + description + script |
+| YouTube Shorts | 9:16 | ≤60 s | short script + captions |
+| TikTok | 9:16 | ~27 s | caption + hashtags + script |
+| Reels | 9:16 | ~60 s | caption + hashtags + script |
+| X | 16:9 | — | ≤280-char post |
+| LinkedIn | 1:1 | ~90 s | long-form post |
+
+## Wire it into your stack (MCP)
+
+creatorforge ships an **MCP server**, so Claude, an internal orchestrator, or any MCP-capable agent can drive it directly:
+
+```bash
+creatorforge serve     # JSON-RPC over stdio
+```
+
+Tools: `profile_voice`, `generate_ideas`, `write_hooks`, `write_script`, `thumbnail_concepts`, `package_for_platform`, `run_pipeline`. Hand the packaged posts to your scheduler/poster of choice and the loop is closed.
+
+## Testing
+
+```bash
+pip install -e ".[dev]"
+pytest -q          # 20 tests
+```
+
+## License
+
+Apache-2.0. © Cognis Digital. The whole engine is open — read it, fork it, run it on your own model. You own your content team.
+
+> Status: v0.1 — runnable and tested. Roadmap: more hook/idea formula packs, a thumbnail rasterizer, A/B title scoring, and direct publishing adapters.
