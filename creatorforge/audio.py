@@ -15,6 +15,8 @@ import os
 import shutil
 from typing import Optional
 
+from .hardware import ffmpeg_exe
+
 
 def _wave_bed(out_path: str, seconds: float = 8.0, rate: int = 44100,
               freq: float = 196.0, volume: float = 0.06) -> str:
@@ -43,19 +45,20 @@ def _produce_ffmpeg(out_path: str, voiceover: Optional[str], music: Optional[str
                     seconds: float, target_lufs: float) -> dict:
     import subprocess
 
+    ff = ffmpeg_exe()
     path = out_path if out_path.endswith((".wav", ".mp3", ".m4a")) else out_path + ".m4a"
     if voiceover and music:
         # duck the music under the voiceover, then normalize loudness
         flt = (f"[1:a]volume=0.25,aloop=loop=-1:size=2e9[bed];"
                f"[0:a][bed]amix=inputs=2:duration=first:dropout_transition=2,"
                f"loudnorm=I={target_lufs}:TP=-1.5[a]")
-        cmd = ["ffmpeg", "-y", "-i", voiceover, "-i", music, "-filter_complex", flt,
+        cmd = [ff, "-y", "-i", voiceover, "-i", music, "-filter_complex", flt,
                "-map", "[a]", "-shortest", path]
     elif voiceover:
-        cmd = ["ffmpeg", "-y", "-i", voiceover,
+        cmd = [ff, "-y", "-i", voiceover,
                "-af", f"loudnorm=I={target_lufs}:TP=-1.5", path]
     elif music:
-        cmd = ["ffmpeg", "-y", "-i", music, "-t", str(seconds),
+        cmd = [ff, "-y", "-i", music, "-t", str(seconds),
                "-af", f"loudnorm=I={target_lufs}:TP=-1.5", path]
     else:
         return _produce_wave(out_path, None, seconds)
@@ -76,7 +79,7 @@ def produce(out_path: str, *, voiceover: Optional[str] = None, music: Optional[s
             seconds: float = 8.0, target_lufs: float = -14.0, backend: str = "auto") -> dict:
     """Produce a finished audio track. backend: auto | ffmpeg | wave."""
     if backend == "auto":
-        backend = "ffmpeg" if shutil.which("ffmpeg") else "wave"
+        backend = "ffmpeg" if ffmpeg_exe() else "wave"
     if backend == "ffmpeg":
         return _produce_ffmpeg(out_path, voiceover, music, seconds, target_lufs)
     if backend == "wave":

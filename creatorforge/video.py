@@ -14,10 +14,10 @@ true generated b-roll; without it, we assemble from frames — which runs anywhe
 
 from __future__ import annotations
 
-import shutil
 from typing import List, Optional
 
 from .captions import to_overlays
+from .hardware import ffmpeg_exe
 from .images import _font, _pil_available
 
 _PALETTE = {"bg": "#0E1517", "accent": "#F4B400", "text": "#FFFFFF"}
@@ -86,7 +86,7 @@ def _render_ffmpeg(frames, out_path, size, fps, audio_path) -> dict:
         concat = Path(tmp) / "list.txt"
         concat.write_text("\n".join(listing), encoding="utf-8")
 
-        cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat)]
+        cmd = [ffmpeg_exe(), "-y", "-f", "concat", "-safe", "0", "-i", str(concat)]
         if audio_path:
             cmd += ["-i", audio_path, "-shortest"]
         cmd += ["-vf", f"scale={size[0]}:{size[1]},format=yuv420p", "-r", str(fps), path]
@@ -101,7 +101,7 @@ def render(frames: List[dict], out_path: str, *, size=(1080, 1920), fps: int = 2
     if not frames:
         raise ValueError("no frames to render")
     if backend == "auto":
-        if shutil.which("ffmpeg") and _pil_available():
+        if ffmpeg_exe() and _pil_available():
             backend = "ffmpeg"
         elif _pil_available():
             backend = "gif"

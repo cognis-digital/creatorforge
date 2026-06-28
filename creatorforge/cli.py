@@ -337,6 +337,26 @@ def cmd_repos(args) -> int:
     return 0
 
 
+def cmd_posts(args) -> int:
+    from pathlib import Path
+    from . import posttypes, repos
+    from .hooks import write_hooks
+    meta = repos.repo_meta(args.spec)
+    is_remote = "/" in args.spec and not Path(args.spec).exists()
+    ctx = {"name": meta["name"], "summary": meta.get("description", ""),
+           "features": meta.get("features", []),
+           "url": args.url or (f"https://github.com/{args.spec}" if is_remote else "")}
+    hook = write_hooks(meta.get("title") or meta["name"], _voice(args), 1,
+                       provider=_provider(args))[0]["hook"]
+    types = args.types.split(",") if args.types else None
+    posts = posttypes.mixed_posts(ctx, types, hook)
+    if args.out:
+        body = "\n\n---\n\n".join(f"## {p['type'].replace('_',' ').title()}\n\n{p['text']}" for p in posts)
+        Path(args.out).write_text(body, encoding="utf-8")
+    _print({"name": meta["name"], "out": args.out, "types": [p["type"] for p in posts]})
+    return 0
+
+
 def cmd_growth(args) -> int:
     from . import growth, repos
     meta = repos.repo_meta(args.spec)
@@ -494,6 +514,14 @@ def build_parser() -> argparse.ArgumentParser:
     prs.add_argument("--format", default="promotional"); prs.add_argument("--longform", action="store_true")
     prs.add_argument("--out", default="repo_content")
     prs.set_defaults(func=cmd_repos)
+
+    ppo = sub.add_parser("posts", help="a mix of LinkedIn drafts (whitepaper/case-study/report/announce/promo/demo)")
+    ppo.add_argument("spec", help="repo path or owner/name")
+    ppo.add_argument("--types", default=None, help="comma list (default: all 6)")
+    ppo.add_argument("--url", default=None); ppo.add_argument("--voice")
+    ppo.add_argument("--provider", default="template"); ppo.add_argument("--model", default="auto")
+    ppo.add_argument("--out", default=None)
+    ppo.set_defaults(func=cmd_posts)
 
     pgr = sub.add_parser("growth", help="a 30-day launch strategy mirroring how big AI companies grew")
     pgr.add_argument("spec", help="repo path or owner/name"); pgr.add_argument("--out", default=None)

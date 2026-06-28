@@ -13,14 +13,14 @@ import shutil
 
 def capabilities() -> dict:
     from . import transcribe, tts
-    from .hardware import recommend
+    from .hardware import ffmpeg_exe, recommend
     from .images import Automatic1111Backend, DiffusersBackend, _pil_available
     from .providers import OllamaProvider
 
     rec = recommend()
     op = OllamaProvider()
     models = op.list_models()
-    has_ffmpeg = bool(shutil.which("ffmpeg"))
+    has_ffmpeg = bool(ffmpeg_exe())
 
     return {
         "hardware": {"device": rec["device"], "vram_gb": rec["vram_gb"], "gpu": rec["gpu"]},

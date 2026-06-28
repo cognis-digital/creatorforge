@@ -67,6 +67,20 @@ def detect() -> Hardware:
     return _via_torch() or _via_nvidia_smi() or Hardware("cpu", 0.0, "")
 
 
+def ffmpeg_exe() -> "Optional[str]":
+    """Path to an ffmpeg binary: system PATH first, then the imageio-ffmpeg
+    bundled binary (pip install imageio-ffmpeg) so real MP4s work without a
+    system install."""
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
 # (model, min_vram_gb) ladders — biggest-that-fits wins. CPU tier is the floor.
 _LLM_TIERS = [
     ("qwen2.5:32b", 24), ("llama3.1:8b", 8), ("qwen2.5:7b", 6), ("llama3.2:3b", 0),
