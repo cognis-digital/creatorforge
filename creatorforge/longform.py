@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from . import formats, playbook, styles
+from . import camera, engagement, formats, playbook, styles
 from .hooks import write_hooks
 from .providers import Provider, TemplateProvider
 from .thumbnails import thumbnail_concepts
@@ -125,23 +125,16 @@ def build_longform(brief: LongformBrief, voice: Optional[VoiceProfile] = None,
     chapters: List[dict] = []
     cue_sheet: List[dict] = []
     t = 0.0
-    shot_i = 0
     for beat, purpose, seconds in allocation:
         n_shots = max(1, round(seconds / scene_len))
-        shots = []
-        for _ in range(n_shots):
-            shots.append({
-                "shot_type": shot_vocab[shot_i % len(shot_vocab)],
-                "visual": f"{shot_vocab[shot_i % len(shot_vocab)]}: {brief.topic} — {purpose}",
-                "broll": f"b-roll illustrating '{purpose}' for {brief.topic}",
-            })
-            shot_i += 1
+        shots = camera.coverage(beat, purpose, brief.topic, style, n_shots)
         narration = _narration(beat, purpose, brief.topic, style["narration_tone"], seconds)
         music = _music_for(beat, style["music_mood"])
         sfx = _sfx_for(beat)
         scenes.append({
             "beat": beat, "purpose": purpose, "seconds": seconds,
-            "shots": shots, "narration": narration, "music_cue": music, "sfx": sfx,
+            "shots": shots, "retention_move": engagement.retention_move(beat),
+            "narration": narration, "music_cue": music, "sfx": sfx,
         })
         chapters.append({"start_s": round(t), "label": _chapter_label(beat, brief.topic)})
         cue_sheet.append({"at_s": round(t), "music": music, "sfx": sfx})
@@ -166,6 +159,8 @@ def build_longform(brief: LongformBrief, voice: Optional[VoiceProfile] = None,
         "pattern_interrupts_s": pattern_interrupts,
         "title_options": titles,
         "thumbnail_concepts": thumbs,
+        "engagement_plan": engagement.engagement_plan(brief.format, style_name),
+        "multicam": camera.multicam_plan(scenes),
         "runtime_seconds": round(t),
         "narration_word_count": narration_words,
         "hook_lands_by_s": min(notes["hook_must_land_by_s"], scenes[0]["seconds"]) if scenes else 0,

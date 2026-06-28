@@ -161,6 +161,33 @@ creatorforge studio --topic "..." --format documentary --assets assets.json --ou
 
 > Licensing, honestly: your own library is yours. Openverse/Wikimedia results are Creative Commons / public-domain and **may require attribution** — creatorforge surfaces the license and attribution string with every result so you can credit correctly. It never pulls watermarked or paid-preview imagery.
 
+## Direction & engagement craft (multi-cam, cool shots, retention)
+
+Long-form plans don't just have scenes — they have **coverage and engagement built in**:
+
+- **Multi-camera shot generation.** Every beat gets a shot list across A/B/C/detail/drone/POV cameras with motivated **camera moves** — dolly-in, push-in, crane, gimbal track, **drone reveal**, **dolly-zoom (vertigo)**, orbit, speed-ramp — and the showy "cool shots" land where they matter (cold opens, turns, climaxes). The plan tells you exactly which cameras a production needs.
+- **Engagement craft, encoded.** Each beat carries a **retention move** drawn from two lineages: great-filmmaker grammar (in-media-res, but/therefore causality, show-don't-tell, escalating stakes, tension-release, match cuts, the Kuleshov effect) and modern retention tactics (front-load the payoff, escalate every segment, reset the hook on a cadence, concrete stakes/numbers, no dead air, tease what's coming, emotional payoff). Structure isn't just correct — it's *sticky*.
+
+It's all in the `longform`/`studio` plan: `scenes[].shots` (cams + moves), `scenes[].retention_move`, `multicam`, and `engagement_plan`.
+
+## Make content for your repos — and grow like the AI companies that made it
+
+Point creatorforge at a repository and it writes the content **for** it; point it at an owner and it does the whole catalog.
+
+```bash
+# one repo -> multi-platform content (reads the README, derives what it is)
+creatorforge repo ./codegraph-mcp --format promotional --out plan.json
+creatorforge repo cognis-digital/agentledger --longform --format documentary   # via gh
+
+# every repo of an owner, batched
+creatorforge repos --owner cognis-digital --format promotional --out ./repo_content/
+
+# a 30-day launch strategy that mirrors how the big AI companies actually grew
+creatorforge growth ./codegraph-mcp
+```
+
+The **growth playbook** encodes the plays that repeatedly worked for the AI companies that broke out — a runnable demo over a pitch deck, building in public, a benchmark moment, developer-first distribution, founder-led content, free/open core, naming the category — and turns them into a concrete day-by-day launch calendar for your project. The edge was never the secret; it's executing these consistently, which is exactly what the engine makes cheap.
+
 ## Wire it into your stack (MCP)
 
 creatorforge ships an **MCP server**, so Claude, an internal orchestrator, or any MCP-capable agent can drive it directly:
@@ -175,7 +202,7 @@ Tools: `profile_voice`, `generate_ideas`, `write_hooks`, `write_script`, `thumbn
 
 ```bash
 pip install -e ".[dev]"
-pytest -q          # 43 tests
+pytest -q          # 49 tests
 ```
 
 ## License

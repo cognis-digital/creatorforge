@@ -297,6 +297,57 @@ def cmd_studio(args) -> int:
     return 0
 
 
+def cmd_repo(args) -> int:
+    from . import repos
+    plan = repos.content_for_repo(args.spec, fmt=args.format, longform=args.longform,
+                                  voice=_voice(args), provider=_provider(args))
+    if args.out:
+        from pathlib import Path
+        Path(args.out).write_text(json.dumps(plan, indent=2, default=str), encoding="utf-8")
+    summary = {"repo": plan.get("repo", {}).get("name"), "format": args.format, "out": args.out}
+    if args.longform:
+        summary.update({"runtime_seconds": plan["runtime_seconds"],
+                        "title_options": plan["title_options"][:3]})
+    else:
+        summary.update({"ideas": len(plan.get("ideas", [])), "platforms": list(plan.get("packages", {}))})
+    _print(summary)
+    return 0
+
+
+def cmd_repos(args) -> int:
+    from pathlib import Path
+    from . import repos
+    items = repos.list_repos(args.owner, args.limit)
+    if not items:
+        _print({"owner": args.owner, "error": "no repos (is `gh` installed and authed?)"})
+        return 1
+    outdir = Path(args.out)
+    outdir.mkdir(parents=True, exist_ok=True)
+    made = []
+    for it in items:
+        spec = f"{args.owner}/{it['name']}"
+        try:
+            plan = repos.content_for_repo(spec, fmt=args.format, longform=args.longform)
+            (outdir / f"{it['name']}.json").write_text(
+                json.dumps(plan, indent=2, default=str), encoding="utf-8")
+            made.append(it["name"])
+        except Exception as e:  # noqa: BLE001
+            made.append(f"{it['name']} (skipped: {e})")
+    _print({"owner": args.owner, "count": len(made), "out": str(outdir), "made": made[:25]})
+    return 0
+
+
+def cmd_growth(args) -> int:
+    from . import growth, repos
+    meta = repos.repo_meta(args.spec)
+    strat = growth.launch_strategy(meta["name"], meta.get("title", ""), meta.get("description", ""))
+    if args.out:
+        from pathlib import Path
+        Path(args.out).write_text(json.dumps(strat, indent=2, default=str), encoding="utf-8")
+    _print(strat)
+    return 0
+
+
 def cmd_serve(args) -> int:
     from .mcp_server import MCPServer
     print("creatorforge MCP server over stdio", file=sys.stderr)
@@ -430,6 +481,23 @@ def build_parser() -> argparse.ArgumentParser:
     ppr.add_argument("--hero", default=None); ppr.add_argument("--assets", default=None)
     ppr.add_argument("--out", default="production")
     ppr.set_defaults(func=cmd_produce)
+
+    prp = sub.add_parser("repo", help="generate content/video for a repo (path or owner/name)")
+    prp.add_argument("spec"); prp.add_argument("--format", default="promotional")
+    prp.add_argument("--longform", action="store_true", help="cinematic long-form plan instead of multi-platform")
+    prp.add_argument("--voice"); prp.add_argument("--provider", default="template"); prp.add_argument("--model", default="auto")
+    prp.add_argument("--out", default=None)
+    prp.set_defaults(func=cmd_repo)
+
+    prs = sub.add_parser("repos", help="batch: make content for every repo of an owner (via gh)")
+    prs.add_argument("--owner", required=True); prs.add_argument("--limit", type=int, default=30)
+    prs.add_argument("--format", default="promotional"); prs.add_argument("--longform", action="store_true")
+    prs.add_argument("--out", default="repo_content")
+    prs.set_defaults(func=cmd_repos)
+
+    pgr = sub.add_parser("growth", help="a 30-day launch strategy mirroring how big AI companies grew")
+    pgr.add_argument("spec", help="repo path or owner/name"); pgr.add_argument("--out", default=None)
+    pgr.set_defaults(func=cmd_growth)
 
     sub.add_parser("serve", help="serve the engine to agents over MCP (stdio)").set_defaults(func=cmd_serve)
     return p
