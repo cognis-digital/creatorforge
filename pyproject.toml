@@ -20,7 +20,11 @@ classifiers = [
 dependencies = []  # standard library only; optional local model via Ollama
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "Pillow>=10"]
+# Optional local-model extras (install what your hardware supports):
+images = ["Pillow>=10"]              # CPU raster thumbnails (diffusion via your A1111/diffusers)
+transcribe = ["faster-whisper>=1"]   # local Whisper
+media = ["Pillow>=10"]               # video frame rendering (MP4 needs system ffmpeg)
 
 [project.scripts]
 creatorforge = "creatorforge.cli:main"

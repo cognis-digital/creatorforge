@@ -45,32 +45,55 @@ class OllamaProvider(Provider):
     """
 
     name = "ollama"
+    # preference order when model="auto": instruction-tuned / capable first
+    _PREFER = ("omnicoder", "qwen2.5", "qwen", "llama3.1", "llama3", "mistral", "codellama")
 
-    def __init__(self, model: str = "llama3", host: str = "http://localhost:11434",
-                 timeout: float = 60.0):
-        self.model = model
+    def __init__(self, model: str = "auto", host: str = "http://localhost:11434",
+                 timeout: float = 120.0):
         self.host = host.rstrip("/")
         self.timeout = timeout
+        self.model = model
+
+    def list_models(self) -> list:
+        import urllib.request
+        try:
+            with urllib.request.urlopen(f"{self.host}/api/tags", timeout=3) as r:
+                return [m["name"] for m in json.loads(r.read()).get("models", [])]
+        except Exception:
+            return []
+
+    def best_model(self) -> Optional[str]:
+        models = self.list_models()
+        if not models:
+            return None
+        for pref in self._PREFER:
+            for m in models:
+                if pref in m.lower():
+                    return m
+        return models[0]
+
+    def resolve_model(self) -> Optional[str]:
+        if self.model and self.model != "auto":
+            return self.model
+        return self.best_model()
 
     @property
     def available(self) -> bool:  # type: ignore[override]
-        import urllib.request
-        try:
-            with urllib.request.urlopen(f"{self.host}/api/tags", timeout=2):
-                return True
-        except Exception:
-            return False
+        return bool(self.list_models())
 
     def rewrite(self, text: str, voice: VoiceProfile, instruction: str = "") -> str:
         import urllib.request
 
+        model = self.resolve_model()
+        if not model:
+            return text
         system = (
             "You are a ghostwriter. Rewrite the content in this exact creator voice, "
             "preserving meaning and structure. Voice: " + voice.style_brief()
         )
         prompt = (instruction + "\n\n" if instruction else "") + text
         body = json.dumps({
-            "model": self.model, "system": system, "prompt": prompt, "stream": False,
+            "model": model, "system": system, "prompt": prompt, "stream": False,
         }).encode("utf-8")
         req = urllib.request.Request(f"{self.host}/api/generate", data=body,
                                      headers={"Content-Type": "application/json"})

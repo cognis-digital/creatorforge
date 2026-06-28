@@ -9,4 +9,12 @@ dist/
 venv/
 voice.json
 plan.json
+_prod/
+production/
+outbox/
+*.png
+*.gif
+*.wav
+*.mp4
+*.m4a
 *.svg

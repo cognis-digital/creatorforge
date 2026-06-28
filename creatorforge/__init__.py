@@ -19,6 +19,8 @@ from .voice import VoiceProfile, analyze
 from .providers import Provider, TemplateProvider, OllamaProvider, get_provider
 from .platforms import PLATFORMS, platform_spec
 from .pipeline import ContentBrief, run_pipeline
+from .hardware import detect, recommend
+from .capabilities import capabilities
 
 __version__ = "0.1.0"
 __all__ = [
@@ -26,5 +28,6 @@ __all__ = [
     "Provider", "TemplateProvider", "OllamaProvider", "get_provider",
     "PLATFORMS", "platform_spec",
     "ContentBrief", "run_pipeline",
+    "detect", "recommend", "capabilities",
     "__version__",
 ]

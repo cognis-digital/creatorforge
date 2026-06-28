@@ -77,6 +77,44 @@ Run `python demo.py` to watch it learn a voice and generate a full multi-platfor
 | X | 16:9 | — | ≤280-char post |
 | LinkedIn | 1:1 | ~90 s | long-form post |
 
+## Local models — every modality, on your hardware
+
+creatorforge drives the best **open-source, local, free** model your machine can run, in every modality — and degrades cleanly when you don't have the big one. Ask it what it can do:
+
+```bash
+creatorforge capabilities
+```
+
+| Modality | What it does | Open model (GPU) | Runs with no GPU |
+|----------|-------------|------------------|------------------|
+| **Text** | hooks, scripts, ideas in your voice | any Ollama model (auto-picks your best) | ✅ via Ollama / template engine |
+| **Transcription** | footage → text → repurposed posts | faster-whisper `large-v3` | ✅ `base`/`small` on CPU |
+| **Voice** | voiceover + **voice cloning** | XTTS-v2 (clone) | ✅ Piper (CPU) |
+| **Image** | photorealistic thumbnails | FLUX.1-schnell / SDXL-Turbo / SD 1.5 | ✅ real raster PNG (PIL) → SVG |
+| **Video** | finished short, captions timed | LTX-Video / CogVideoX (text-to-video) | ✅ assembled MP4 (ffmpeg) / animated GIF |
+| **Audio** | voiceover + music, leveled | MusicGen beds | ✅ ffmpeg mix / stdlib WAV |
+
+The recommended model in each row is chosen to fit your VRAM (`recommend()` ladders from a 24 GB GPU down to CPU). Photorealistic images, cloned voices, MP4s, and generated b-roll need the model/tool installed — but there's always a **real, local fallback** so nothing hard-fails: a composited raster thumbnail, an animated GIF, a synthesized WAV. Nothing is ever sent to a cloud API.
+
+```bash
+# transcribe footage with local Whisper
+creatorforge transcribe talk.mp4
+
+# generate a thumbnail (diffusion if you have it, else a real raster PNG)
+creatorforge image --topic "owning your AI stack" --voice voice.json --out thumb
+
+# produce a finished short from a script (MP4 with ffmpeg, else animated video)
+creatorforge video --topic "owning your AI stack" --platform youtube_shorts --out short
+
+# voiceover (Piper, or clone your voice with XTTS) and an audio track
+creatorforge voiceover --from-script script.json --out vo.wav --speaker my_voice.wav
+creatorforge audio --voiceover vo.wav --music bed.mp3 --out track
+
+# the whole production in one command: plan + thumbnail + video + audio + outbox
+creatorforge produce --topic "owning your AI stack" --niche "AI for business" \
+    --provider ollama --out ./production/
+```
+
 ## Wire it into your stack (MCP)
 
 creatorforge ships an **MCP server**, so Claude, an internal orchestrator, or any MCP-capable agent can drive it directly:
@@ -91,11 +129,11 @@ Tools: `profile_voice`, `generate_ideas`, `write_hooks`, `write_script`, `thumbn
 
 ```bash
 pip install -e ".[dev]"
-pytest -q          # 20 tests
+pytest -q          # 29 tests
 ```
 
 ## License
 
-Apache-2.0. © Cognis Digital. The whole engine is open — read it, fork it, run it on your own model. You own your content team.
+Apache-2.0. © Cognis Digital. The whole engine is open — read it, fork it, run it on your own models. You own your content team.
 
-> Status: v0.1 — runnable and tested. Roadmap: more hook/idea formula packs, a thumbnail rasterizer, A/B title scoring, and direct publishing adapters.
+> Status: v0.1 — runnable and tested. Text, transcription, voice, image, video, and audio backends are wired with hardware-aware selection and CPU fallbacks. Roadmap: ComfyUI image/video backend, A/B title scoring, scheduled auto-publish, more hook/idea formula packs.

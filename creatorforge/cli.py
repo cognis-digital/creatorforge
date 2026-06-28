@@ -19,15 +19,19 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from . import __version__
+from . import __version__, audio as _audio, transcribe as _transcribe, tts as _tts
 from .calendar import build_calendar
+from .capabilities import capabilities
 from .hooks import write_hooks
 from .ideas import generate_ideas
+from .images import generate_thumbnail, get_image_backend
 from .pipeline import ContentBrief, run_pipeline
 from .platforms import package
 from .providers import get_provider
+from .publish import to_outbox
 from .script import write_script
 from .thumbnails import render_svg, thumbnail_concepts
+from .video import render as render_video, storyboard
 from .voice import VoiceProfile, analyze
 
 
@@ -131,6 +135,74 @@ def cmd_pipeline(args) -> int:
     return 0
 
 
+def cmd_capabilities(args) -> int:
+    _print(capabilities())
+    return 0
+
+
+def cmd_transcribe(args) -> int:
+    _print(_transcribe.transcribe(args.audio, model=args.model))
+    return 0
+
+
+def cmd_voiceover(args) -> int:
+    text = args.text
+    if args.from_script:
+        with open(args.from_script, encoding="utf-8") as fh:
+            s = json.load(fh)
+        s = s.get("script", s)
+        from .captions import spoken_lines
+        text = " ".join(spoken_lines(s))
+    out = _tts.synthesize(text, args.out, backend=args.backend,
+                          voice_model=args.voice_model, speaker_wav=args.speaker)
+    _print(out)
+    return 0
+
+
+def cmd_image(args) -> int:
+    concept = thumbnail_concepts(args.topic, _voice(args), 1)[0]
+    backend = None if args.backend == "auto" else get_image_backend(args.backend)
+    _print(generate_thumbnail(concept, args.out, backend=backend))
+    return 0
+
+
+def cmd_video(args) -> int:
+    script = write_script(args.topic, _voice(args), args.platform, provider=_provider(args))
+    out = render_video(storyboard(script), args.out, audio_path=args.audio, backend=args.backend)
+    _print(out)
+    return 0
+
+
+def cmd_audio(args) -> int:
+    _print(_audio.produce(args.out, voiceover=args.voiceover, music=args.music,
+                          seconds=args.seconds, backend=args.backend))
+    return 0
+
+
+def cmd_produce(args) -> int:
+    from pathlib import Path
+    voice = _voice(args)
+    brief = ContentBrief(topic=args.topic, niche=args.niche, audience=args.audience,
+                         platforms=args.platforms.split(","))
+    result = run_pipeline(brief, voice, _provider(args))
+    outdir = Path(args.out)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    assets = {}
+    assets["thumbnail"] = generate_thumbnail(result["thumbnails"][0], str(outdir / "thumbnail"))
+    assets["video"] = render_video(storyboard(result["script"]), str(outdir / "short"))
+    assets["audio"] = _audio.produce(str(outdir / "track"),
+                                     seconds=result["script"]["est_seconds"])
+    assets["outbox"] = to_outbox(result["packages"], str(outdir / "outbox"))
+    (outdir / "plan.json").write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+
+    _print({"outdir": str(outdir), "assets": {
+        "thumbnail": assets["thumbnail"], "video": assets["video"],
+        "audio": assets["audio"], "outbox_files": len(assets["outbox"]),
+        "plan": str(outdir / "plan.json")}})
+    return 0
+
+
 def cmd_serve(args) -> int:
     from .mcp_server import MCPServer
     print("creatorforge MCP server over stdio", file=sys.stderr)
@@ -189,6 +261,47 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--weeks", type=int, default=4)
     pl.add_argument("--out", default=None)
     pl.set_defaults(func=cmd_pipeline)
+
+    sub.add_parser("capabilities", help="report which local models/backends are available")\
+        .set_defaults(func=cmd_capabilities)
+
+    ptr = sub.add_parser("transcribe", help="transcribe audio/video with local Whisper")
+    ptr.add_argument("audio"); ptr.add_argument("--model", default=None)
+    ptr.set_defaults(func=cmd_transcribe)
+
+    pvo = sub.add_parser("voiceover", help="synthesize a voiceover (local TTS)")
+    pvo.add_argument("--text", default=""); pvo.add_argument("--from-script", dest="from_script")
+    pvo.add_argument("--out", required=True)
+    pvo.add_argument("--backend", default="auto", choices=["auto", "piper", "xtts"])
+    pvo.add_argument("--voice-model", dest="voice_model"); pvo.add_argument("--speaker")
+    pvo.set_defaults(func=cmd_voiceover)
+
+    pim = sub.add_parser("image", help="generate a thumbnail image (diffusion/raster/svg)")
+    pim.add_argument("--topic", required=True); pim.add_argument("--voice"); pim.add_argument("--out", required=True)
+    pim.add_argument("--backend", default="auto", choices=["auto", "automatic1111", "diffusers"])
+    pim.set_defaults(func=cmd_image)
+
+    pvi = sub.add_parser("video", help="produce a short video from a script")
+    pvi.add_argument("--topic", required=True); pvi.add_argument("--voice"); pvi.add_argument("--out", required=True)
+    pvi.add_argument("--platform", default="youtube_shorts")
+    pvi.add_argument("--provider", default="template"); pvi.add_argument("--model", default="auto")
+    pvi.add_argument("--audio", default=None)
+    pvi.add_argument("--backend", default="auto", choices=["auto", "ffmpeg", "gif"])
+    pvi.set_defaults(func=cmd_video)
+
+    pau = sub.add_parser("audio", help="produce an audio track (voiceover + music)")
+    pau.add_argument("--out", required=True); pau.add_argument("--voiceover"); pau.add_argument("--music")
+    pau.add_argument("--seconds", type=float, default=8.0)
+    pau.add_argument("--backend", default="auto", choices=["auto", "ffmpeg", "wave"])
+    pau.set_defaults(func=cmd_audio)
+
+    ppr = sub.add_parser("produce", help="full production: plan + thumbnail + video + audio + outbox")
+    ppr.add_argument("--topic", required=True); ppr.add_argument("--niche", default=""); ppr.add_argument("--voice")
+    ppr.add_argument("--audience", default="people")
+    ppr.add_argument("--platforms", default="youtube,tiktok,x")
+    ppr.add_argument("--provider", default="template"); ppr.add_argument("--model", default="auto")
+    ppr.add_argument("--out", default="production")
+    ppr.set_defaults(func=cmd_produce)
 
     sub.add_parser("serve", help="serve the engine to agents over MCP (stdio)").set_defaults(func=cmd_serve)
     return p
