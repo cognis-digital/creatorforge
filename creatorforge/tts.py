@@ -64,8 +64,53 @@ def xtts_available() -> bool:
         return False
 
 
+def _kokoro_models():
+    """Locate Kokoro ONNX model + voices: $CREATORFORGE_KOKORO_DIR or local _voices/kokoro."""
+    import glob
+    import os
+    cands = [os.environ.get("CREATORFORGE_KOKORO_DIR", ""),
+             os.path.expanduser("~/_voices/kokoro"), r"C:\Users\user\_voices\kokoro",
+             "voices/kokoro"]
+    for d in cands:
+        if not d:
+            continue
+        onnx = glob.glob(os.path.join(d, "kokoro*.onnx"))
+        binv = glob.glob(os.path.join(d, "voices*.bin"))
+        if onnx and binv:
+            return onnx[0], binv[0]
+    return None, None
+
+
+def kokoro_available() -> bool:
+    try:
+        import kokoro_onnx  # noqa: F401
+        m, v = _kokoro_models()
+        return bool(m and v)
+    except Exception:
+        return False
+
+
+_KOKORO = None
+
+
+def _synth_kokoro(text: str, out_path: str, voice: str = "am_michael",
+                  speed: float = 1.05) -> dict:
+    """Kokoro-82M: the most natural local CPU voice we support."""
+    global _KOKORO
+    import soundfile as sf
+    from kokoro_onnx import Kokoro
+    if _KOKORO is None:
+        m, v = _kokoro_models()
+        _KOKORO = Kokoro(m, v)
+    path = out_path if out_path.endswith(".wav") else out_path + ".wav"
+    samples, sr = _KOKORO.create(text, voice=voice, speed=speed, lang="en-us")
+    sf.write(path, samples, sr)
+    return {"path": path, "backend": "kokoro", "voice": voice}
+
+
 def capabilities() -> dict:
-    return {"piper": piper_available(), "xtts": xtts_available(), "sapi": sapi_available()}
+    return {"kokoro": kokoro_available(), "piper": piper_available(),
+            "xtts": xtts_available(), "sapi": sapi_available()}
 
 
 def _synth_piper(text: str, out_path: str, voice_model: Optional[str]) -> dict:
@@ -90,8 +135,8 @@ def _synth_xtts(text: str, out_path: str, speaker_wav: Optional[str], language: 
 
 
 def synthesize(text: str, out_path: str, *, backend: str = "auto",
-               voice_model: Optional[str] = None, speaker_wav: Optional[str] = None,
-               language: str = "en") -> dict:
+               voice_model: Optional[str] = None, voice: Optional[str] = None,
+               speaker_wav: Optional[str] = None, language: str = "en") -> dict:
     """Synthesize speech to `out_path`. backend: auto | piper | xtts.
 
     'auto' prefers a cloned voice (xtts + speaker_wav) when available, else Piper.
@@ -99,16 +144,20 @@ def synthesize(text: str, out_path: str, *, backend: str = "auto",
     if backend == "auto":
         if speaker_wav and xtts_available():
             backend = "xtts"           # voice cloning when a reference is given
+        elif kokoro_available():
+            backend = "kokoro"         # most natural local CPU voice
         elif piper_available():
-            backend = "piper"          # best CPU neural voice
+            backend = "piper"          # fast CPU neural voice
         elif sapi_available():
             backend = "sapi"           # offline OS voice — always works
         elif xtts_available():
             backend = "xtts"
         else:
             raise RuntimeError(
-                "no local TTS available: install pyttsx3 (offline OS voice), "
-                "Piper (pip install piper-tts), or Coqui TTS for cloning")
+                "no local TTS available: install kokoro-onnx (best), pyttsx3 "
+                "(offline OS voice), Piper, or Coqui TTS for cloning")
+    if backend == "kokoro":
+        return _synth_kokoro(text, out_path, voice or "am_michael")
     if backend == "piper":
         return _synth_piper(text, out_path, voice_model)
     if backend == "sapi":
