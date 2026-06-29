@@ -75,24 +75,38 @@ def ensure_bed(music_dir: str = r"C:\Users\user\_music") -> Optional[str]:
     return None
 
 
-def mix_music(video_in: str, video_out: str, music_path: str,
-              music_db: float = -20.0) -> dict:
-    """Mix a CC0 music bed under a video's existing voice track.
+def _duration(path: str) -> float:
+    """Seconds, parsed from ffmpeg -i stderr (ffprobe isn't bundled)."""
+    import re
+    import subprocess
+    p = subprocess.run([ffmpeg_exe(), "-i", path], capture_output=True, text=True)
+    m = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", p.stderr)
+    if not m:
+        return 0.0
+    h, mm, ss = m.groups()
+    return int(h) * 3600 + int(mm) * 60 + float(ss)
 
-    music_db: how far below unity the bed sits (negative dB). -20 keeps the
-    narration clearly dominant. The bed loops to length and fades in/out.
+
+def mix_music(video_in: str, video_out: str, music_path: str,
+              music_db: float = -21.0) -> dict:
+    """Mix a CC0 music bed UNDER a video's existing voice track.
+
+    The voice is loudness-normalized and kept at full level; the music sits
+    `music_db` below it (looped to length, faded in at the start and out at the
+    end). amix uses normalize=0 so the voice is never auto-attenuated.
     """
     import subprocess
 
     ff = ffmpeg_exe()
     gain = 10 ** (music_db / 20.0)
-    # voice = input 0 audio (normalized); music = input 1 (looped, gained, faded)
+    dur = _duration(video_in) or 0.0
+    fade_out_start = max(0.0, dur - 3.0)
+    # voice (full), music (quiet bed, looped, faded in + out at the very end)
     filt = (
         f"[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[voice];"
         f"[1:a]volume={gain:.4f},afade=t=in:st=0:d=2,"
-        f"aloop=loop=-1:size=2e9[music];"
-        f"[voice][music]amix=inputs=2:duration=first:dropout_transition=3,"
-        f"afade=t=out:st=0:d=0[mix]"
+        f"afade=t=out:st={fade_out_start:.2f}:d=3[music];"
+        f"[voice][music]amix=inputs=2:duration=first:normalize=0:dropout_transition=0[mix]"
     )
     cmd = [ff, "-y", "-i", video_in, "-stream_loop", "-1", "-i", music_path,
            "-filter_complex", filt, "-map", "0:v", "-map", "[mix]",
