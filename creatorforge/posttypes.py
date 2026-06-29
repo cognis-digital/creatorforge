@@ -27,7 +27,7 @@ def _bullets(features: List[str], k: int = 4) -> str:
 
 def make_post(ptype: str, ctx: dict, hook: Optional[str] = None) -> dict:
     name = ctx.get("name", "this")
-    summary = ctx.get("summary", "").strip()
+    summary = ctx.get("summary", "").strip().rstrip(".").strip()
     url = ctx.get("url", "")
     feats = ctx.get("features", [])
     tags = _tags(name)
