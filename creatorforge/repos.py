@@ -35,7 +35,9 @@ def parse_readme(text: str) -> dict:
             continue
         description = re.sub(r"[`*_]", "", s).strip()
         break
-    features = [re.sub(r"[`*_]", "", b).strip()[:140] for b in _BULLET.findall(text)][:8]
+    # real feature bullets, not the yes-ladder hook questions some READMEs open with
+    features = [re.sub(r"[`*_]", "", b).strip()[:140]
+                for b in _BULLET.findall(text) if not b.strip().endswith("?")][:8]
     return {"title": title, "description": description, "features": features}
 
 

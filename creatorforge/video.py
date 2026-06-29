@@ -162,6 +162,45 @@ def render_kenburns(images: List, out_path: str, *, audio_path: Optional[str] = 
             "seconds": round(sum(max(1.5, float(s)) for _, s in images), 1)}
 
 
+def stills_to_video(items: List, out_path: str, *, audio_path: Optional[str] = None,
+                    size=(1280, 720), fps: int = 24) -> dict:
+    """Assemble held stills into a video (no zoompan — fast even for many minutes).
+
+    items: list of (image_path, seconds). Each image is padded to `size` and
+    held for its duration; clips are concatenated and the voiceover is muxed.
+    This is what makes long narrated video-essays feasible on CPU.
+    """
+    import subprocess
+    import tempfile
+    from pathlib import Path
+
+    ff = ffmpeg_exe()
+    if not ff:
+        raise RuntimeError("needs ffmpeg")
+    w, h = size
+    path = out_path if out_path.endswith(".mp4") else out_path + ".mp4"
+    total = sum(max(0.5, float(s)) for _, s in items)
+    with tempfile.TemporaryDirectory(prefix="cf-still-") as tmp:
+        clips = []
+        for i, (img, secs) in enumerate(items):
+            clip = str(Path(tmp) / f"c{i:04d}.mp4")
+            vf = (f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
+                  f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x0D1117,format=yuv420p")
+            subprocess.run([ff, "-y", "-loop", "1", "-t", f"{max(0.5, float(secs)):.2f}",
+                            "-i", img, "-vf", vf, "-r", str(fps), clip],
+                           check=True, capture_output=True, text=True)
+            clips.append(clip)
+        lf = Path(tmp) / "list.txt"
+        lf.write_text("\n".join(f"file '{Path(c).as_posix()}'" for c in clips), encoding="utf-8")
+        cmd = [ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lf)]
+        if audio_path:
+            cmd += ["-i", audio_path, "-map", "0:v", "-map", "1:a", "-c:a", "aac",
+                    "-t", f"{total:.2f}"]
+        cmd += ["-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps), path]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    return {"path": path, "backend": "stills", "clips": len(items), "seconds": round(total, 1)}
+
+
 def text2video_backend() -> Optional[str]:
     """Detect a local open text-to-video model, if the GPU can run one."""
     from .hardware import recommend

@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-POST_TYPES = ["whitepaper", "case_study", "report", "repo_announcement", "promotion", "demo"]
+POST_TYPES = ["whitepaper", "case_study", "report", "repo_announcement", "promotion",
+              "demo", "expertise", "business"]
 
 
 def _tags(name: str, extra=("AI", "OpenSource")) -> str:
@@ -60,6 +61,17 @@ def make_post(ptype: str, ctx: dict, hook: Optional[str] = None) -> dict:
         text = (f"{hook or f'Watch {name} work.'}\n\n"
                 f"In under a minute: {summary or name}.\n\n{_bullets(feats, 3)}\n\n"
                 f"Try it yourself:{link}\n\n{tags}")
+    elif ptype == "expertise":
+        text = (f"{hook or f'A lesson from building {name}.'}\n\n"
+                f"The pattern I keep seeing: teams want this capability but can't hand their data to a "
+                f"vendor to get it. So we built it to run on your own infrastructure.\n\n"
+                f"What held up in practice:\n{_bullets(feats)}\n\n"
+                f"If you're wrestling with the same trade-off, this is how we think about it.{link}\n\n{tags}")
+    elif ptype == "business":
+        text = (f"{hook or f'Why we built {name} at Cognis Digital.'}\n\n{summary or name}\n\n"
+                f"We build accountable, owned AI tooling for teams that can't outsource trust — "
+                f"regulated, high-stakes, security-first. Open by default; your hardware, your data.\n\n"
+                f"If that's your world, let's talk.{link}\n\n{tags}")
     else:
         raise ValueError(f"unknown post type: {ptype}")
     return {"type": ptype, "name": name, "text": text.strip()}
