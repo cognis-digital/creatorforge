@@ -11,7 +11,7 @@ Business owner? Creator? Ask yourself:
 - When the retainer ends, do you **keep anything** — or does the system walk out the door with them?
 - Do you actually want to film 2–4 hours a week and have everything else handled — **without renting the engine that does it**?
 
-If you nodded, here's the deal: `creatorforge` is that content team, as **open software you own and run yourself**. No retainer. No 50-spots-only. No "proprietary" black box. It's free, Apache-2.0, and runs on *your* hardware and *your* model.
+If you nodded, here's the deal: `creatorforge` is that content team, as **open software you own and run yourself**. No retainer. No 50-spots-only. No "proprietary" black box. It's free, COCL (Cognis Open Collaboration License), and runs on *your* hardware and *your* model.
 
 ## What you get
 
@@ -198,6 +198,53 @@ creatorforge serve     # JSON-RPC over stdio
 
 Tools: `profile_voice`, `generate_ideas`, `write_hooks`, `write_script`, `thumbnail_concepts`, `package_for_platform`, `run_pipeline`. Hand the packaged posts to your scheduler/poster of choice and the loop is closed.
 
+## The pipeline
+
+```mermaid
+flowchart LR
+    posts[Your past posts] --> voice[VoiceProfile]
+    topic[Topic + niche] --> pipe{{run_pipeline}}
+    voice --> pipe
+    prov[Provider<br/>Template / Ollama] -.optional polish.-> pipe
+    pipe --> ideas[ideas]
+    pipe --> hooks[hooks]
+    pipe --> script[script] --> caps[captions + SRT]
+    pipe --> thumbs[thumbnails + SVG]
+    pipe --> pkg[per-platform packages]
+    ideas --> cal[calendar]
+    pkg --> out[(Multi-platform deliverable)]
+    caps --> out
+    thumbs --> out
+    cal --> out
+    topic --> lf[[longform.build_longform]] --> studio[(Cinematic plan:<br/>scenes · shots · cues)]
+    voice --> lf
+    classDef hot stroke:#F4B400,stroke-width:3px;
+    class pipe,lf hot;
+```
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full walkthrough.
+
+## Demos
+
+Five runnable scenarios in [`demos/`](demos/), each for a different audience.
+Every one runs **fully offline** — no network, GPU, or model download — on the
+deterministic engine, so they double as smoke tests. Details in
+[`docs/DEMOS.md`](docs/DEMOS.md).
+
+```bash
+# cp1252 consoles (Windows): PYTHONUTF8=1 makes the emoji output render
+PYTHONUTF8=1 python demos/run_all.py            # all five, end to end
+PYTHONUTF8=1 python demos/02_agency_full_pipeline.py   # or just one
+```
+
+| # | Scenario | Audience | What it shows |
+|---|----------|----------|---------------|
+| 1 | `01_creator_voice_to_post.py` | Solo creators | Learn a voice from past posts, then write hooks, a script, overlays, and SRT in that voice. |
+| 2 | `02_agency_full_pipeline.py` | Business owners | The whole agency bundle from one `run_pipeline` call — brief, ideas, hooks, script, captions, packages, calendar. |
+| 3 | `03_devrel_repo_launch.py` | DevRel & marketing | Point it at a repo (reads the README), get multi-platform content + a 30-day launch calendar. |
+| 4 | `04_multiplatform_repurpose.py` | Multi-platform publishers | One idea packaged for all six channels with every limit honored, plus the algorithm playbook. |
+| 5 | `05_longform_studio.py` | Long-form showrunners | A 12-minute documentary plan: scenes, multi-cam shot lists, retention moves, chapters, titles. |
+
 ## Testing
 
 ```bash
@@ -207,6 +254,6 @@ pytest -q          # 49 tests
 
 ## License
 
-Apache-2.0. © Cognis Digital. The whole engine is open — read it, fork it, run it on your own models. You own your content team.
+COCL (Cognis Open Collaboration License). © Cognis Digital. The whole engine is open — read it, fork it, run it on your own models. You own your content team.
 
 > Status: v0.1 — runnable and tested. Short-form + long-form (5–15 min) production; text, transcription, voice, image, video, music/SFX backends wired with hardware-aware selection and CPU fallbacks; format/style/algorithm intelligence baked in. Roadmap: ComfyUI image/video backend, true text-to-video assembly, A/B title scoring, scheduled auto-publish.
