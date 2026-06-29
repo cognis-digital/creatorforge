@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 POST_TYPES = ["whitepaper", "case_study", "report", "repo_announcement", "promotion",
-              "demo", "expertise", "business"]
+              "demo", "expertise", "business", "comparison", "thread", "lesson"]
 
 
 def _tags(name: str, extra=("AI", "OpenSource")) -> str:
@@ -72,9 +72,58 @@ def make_post(ptype: str, ctx: dict, hook: Optional[str] = None) -> dict:
                 f"We build accountable, owned AI tooling for teams that can't outsource trust — "
                 f"regulated, high-stakes, security-first. Open by default; your hardware, your data.\n\n"
                 f"If that's your world, let's talk.{link}\n\n{tags}")
+    elif ptype == "comparison":
+        text = (f"{hook or f'{name}: owned vs. rented.'}\n\n"
+                f"The usual trade: hand your data to a vendor to get the capability.\n\n"
+                f"{name} takes the other path — {summary or name}:\n"
+                f"• Runs on infrastructure you own\n"
+                f"• Nothing sent to a third party\n"
+                f"• Open source, inspectable, yours\n\n"
+                f"Same capability. None of the lock-in.{link}\n\n{tags}")
+    elif ptype == "thread":
+        text = (f"{hook or f'A short thread on {name}. 🧵'}\n\n"
+                f"1/ The problem: {summary or name}\n\n"
+                f"2/ Why it's hard: most tools make you choose between control and capability.\n\n"
+                f"3/ The approach:\n{_bullets(feats, 3)}\n\n"
+                f"4/ The result: it runs on your hardware, with a clear audit trail.\n\n"
+                f"5/ It's open source — start here:{link}\n\n{tags}")
+    elif ptype == "lesson":
+        text = (f"{hook or f'What building {name} taught us.'}\n\n"
+                f"Teams keep hitting the same wall: they need this capability but can't "
+                f"send their data to a vendor to get it.\n\n"
+                f"So the design constraint became the feature: build it to run locally, "
+                f"prove what it did, and keep it open.\n\n{_bullets(feats, 3)}\n\n"
+                f"If you're wrestling with the same trade-off:{link}\n\n{tags}")
     else:
         raise ValueError(f"unknown post type: {ptype}")
     return {"type": ptype, "name": name, "text": text.strip()}
+
+
+def suite_posts() -> List[dict]:
+    """Cross-cutting, suite-level thought-leadership posts (not tied to one repo)."""
+    tags = "#AccountableAI #OpenSource #AIEngineering"
+    url = "https://github.com/cognis-digital"
+    posts = [
+        ("manifesto", "The next decade of AI tooling belongs to whoever owns the stack.",
+         "Rented intelligence is convenient until the day it isn't — the price changes, "
+         "the model changes, your data is somewhere you can't see.\n\n"
+         "We build the other kind: accountable, owned AI tooling that runs on your "
+         "infrastructure and can prove what it did. Code graphs, signed ledgers, policy "
+         "governance, repo guards — all open, all yours."),
+        ("category", "\"Accountable AI engineering\" isn't a feature. It's a category.",
+         "Five open tools, one principle: you should be able to run your AI stack, "
+         "inspect it, and prove what it did to a regulator — without sending a byte to a "
+         "vendor. That's the suite we're building at Cognis Digital."),
+        ("founder", "Why we open-sourced the whole accountable-AI suite.",
+         "Trust you can't inspect isn't trust. So we made the tooling open: read the code, "
+         "run it on your own hardware, verify the audit chain yourself. If your world is "
+         "regulated, high-stakes, security-first — this was built for you."),
+    ]
+    out = []
+    for slug, hook, body in posts:
+        out.append({"type": f"suite_{slug}", "name": "suite",
+                    "text": f"{hook}\n\n{body}\n\n→ {url}\n\n{tags}"})
+    return out
 
 
 def mixed_posts(ctx: dict, types: Optional[List[str]] = None,
