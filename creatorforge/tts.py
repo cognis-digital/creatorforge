@@ -15,8 +15,27 @@ import shutil
 from typing import Optional
 
 
+def _default_piper_voice() -> Optional[str]:
+    """Find a Piper voice .onnx: $CREATORFORGE_PIPER_VOICE, else a local _voices dir."""
+    import glob
+    import os
+    env = os.environ.get("CREATORFORGE_PIPER_VOICE")
+    if env and os.path.exists(env):
+        return env
+    for pat in (os.path.expanduser(r"~/_voices/*.onnx"), r"C:\Users\user\_voices\*.onnx",
+                "voices/*.onnx"):
+        hits = glob.glob(pat)
+        if hits:
+            return hits[0]
+    return None
+
+
 def piper_available() -> bool:
-    return shutil.which("piper") is not None
+    try:
+        import piper  # noqa: F401
+        return _default_piper_voice() is not None
+    except Exception:
+        return False
 
 
 def sapi_available() -> bool:
@@ -51,13 +70,16 @@ def capabilities() -> dict:
 
 def _synth_piper(text: str, out_path: str, voice_model: Optional[str]) -> dict:
     import subprocess
-    if not voice_model:
-        raise ValueError("piper needs --voice pointing at a .onnx voice model")
-    proc = subprocess.run(["piper", "--model", voice_model, "--output_file", out_path],
+    import sys
+    vm = voice_model or _default_piper_voice()
+    if not vm:
+        raise ValueError("piper needs a voice .onnx (pass voice_model or set CREATORFORGE_PIPER_VOICE)")
+    path = out_path if out_path.endswith(".wav") else out_path + ".wav"
+    proc = subprocess.run([sys.executable, "-m", "piper", "-m", vm, "-f", path],
                           input=text.encode("utf-8"), capture_output=True)
     if proc.returncode != 0:
         raise RuntimeError(f"piper failed: {proc.stderr.decode('utf-8', 'replace')[:200]}")
-    return {"path": out_path, "backend": "piper"}
+    return {"path": path, "backend": "piper"}
 
 
 def _synth_xtts(text: str, out_path: str, speaker_wav: Optional[str], language: str) -> dict:

@@ -201,6 +201,49 @@ def stills_to_video(items: List, out_path: str, *, audio_path: Optional[str] = N
     return {"path": path, "backend": "stills", "clips": len(items), "seconds": round(total, 1)}
 
 
+def render_synced(pairs: List, out_path: str, *, size=(1280, 720), fps: int = 20) -> dict:
+    """Perfect text↔audio sync: each (image, audio_wav) pair is held for exactly
+    its audio's length, with that audio as its track, then all are concatenated.
+
+    Because each on-screen still owns its own narrated clip, the caption can never
+    drift from the voice — it's correct by construction.
+    """
+    import subprocess
+    import tempfile
+    import wave
+    from pathlib import Path
+
+    ff = ffmpeg_exe()
+    if not ff:
+        raise RuntimeError("needs ffmpeg")
+    w, h = size
+    path = out_path if out_path.endswith(".mp4") else out_path + ".mp4"
+    total = 0.0
+    with tempfile.TemporaryDirectory(prefix="cf-sync-") as tmp:
+        clips = []
+        for i, (img, wav) in enumerate(pairs):
+            try:
+                with wave.open(wav) as wf:
+                    dur = wf.getnframes() / wf.getframerate()
+            except Exception:
+                dur = 2.0
+            total += dur
+            clip = str(Path(tmp) / f"c{i:04d}.mp4")
+            vf = (f"scale={w}:{h}:force_original_aspect_ratio=decrease,"
+                  f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x0D1117,format=yuv420p")
+            subprocess.run([ff, "-y", "-loop", "1", "-i", img, "-i", wav,
+                            "-map", "0:v", "-map", "1:a", "-vf", vf, "-r", str(fps),
+                            "-c:v", "libx264", "-c:a", "aac", "-ar", "22050",
+                            "-shortest", clip], check=True, capture_output=True, text=True)
+            clips.append(clip)
+        lf = Path(tmp) / "list.txt"
+        lf.write_text("\n".join(f"file '{Path(c).as_posix()}'" for c in clips), encoding="utf-8")
+        subprocess.run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(lf),
+                        "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p", path],
+                       check=True, capture_output=True, text=True)
+    return {"path": path, "backend": "synced", "pairs": len(pairs), "seconds": round(total, 1)}
+
+
 def text2video_backend() -> Optional[str]:
     """Detect a local open text-to-video model, if the GPU can run one."""
     from .hardware import recommend
