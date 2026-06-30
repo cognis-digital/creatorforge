@@ -141,8 +141,22 @@ figcaption { font-size:9pt; color:#5a6270; margin-top:2mm; font-style:italic; }
 """
 
 
+def _logo_data_uri(white: bool = True) -> str:
+    fn = "logo_white.png" if white else "logo_black.png"
+    for p in (os.environ.get("COGNIS_LOGO_WHITE" if white else "COGNIS_LOGO_BLACK"),
+              os.path.join(r"C:\Users\user\_brand", fn), os.path.expanduser(f"~/_brand/{fn}")):
+        if p and os.path.exists(p):
+            try:
+                return "data:image/png;base64," + base64.b64encode(open(p, "rb").read()).decode()
+            except Exception:
+                return ""
+    return ""
+
+
 def build_html(meta: Dict, sections: List[Dict], figs: List[Dict], sources: List[Dict]) -> str:
     name = meta.get("name", "the system"); summary = meta.get("description", "") or name
+    logo = _logo_data_uri(white=True)
+    logo_html = f'<img src="{logo}" style="width:64px;height:64px;margin-bottom:8mm"/>' if logo else ""
     toc = "".join(f'<li><a href="#s{i}">{i+1}. {_html.escape(s["title"])}</a></li>'
                   for i, s in enumerate(sections))
     refs = "".join(f'<li>[{i+1}] {_html.escape(s["title"])}. <a href="{_html.escape(s["url"])}">{_html.escape(s["url"])}</a></li>'
@@ -155,10 +169,10 @@ def build_html(meta: Dict, sections: List[Dict], figs: List[Dict], sources: List
         paras = "".join(f"<p>{_html.escape(p)}</p>" for p in s["text"].split("\n\n") if p.strip())
         body.append(f'<h2 id="s{i}">{i+1}. {_html.escape(s["title"])}</h2>{paras}{sec_figs}')
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>
-<div class="cover"><h1>{_html.escape(name)}</h1>
+<div class="cover">{logo_html}<h1>{_html.escape(name)}</h1>
 <div class="sub">{_html.escape(summary)}</div>
 <div class="sub" style="font-size:12pt;margin-top:6mm">A Cognis Digital research compendium</div>
-<div class="brand">COGNIS DIGITAL</div></div>
+<div class="brand">COGNIS DIGITAL &nbsp;·&nbsp; cognis.digital</div></div>
 <h2 style="page-break-before:avoid">Contents</h2><ol class="toc">{toc}</ol>
 {''.join(body)}
 <h2>References</h2><ol class="refs">{refs}</ol>

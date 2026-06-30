@@ -93,6 +93,19 @@ def mrbeast_thumbnail(headline: str, badge: str, out_path: str,
     sbb = d.textbbox((0, 0), brand, font=sf)
     _outlined(d, (W - (sbb[2] - sbb[0]) - 40, H - 70), brand, sf, accent, w=4)
 
+    # white Cognis logo, top-right (dark scrim behind keeps it readable)
+    for lp in (os.environ.get("COGNIS_LOGO_WHITE"), r"C:\Users\user\_brand\logo_white.png",
+               os.path.expanduser("~/_brand/logo_white.png")):
+        if lp and os.path.exists(lp):
+            try:
+                logo = Image.open(lp).convert("RGBA")
+                sz = 96
+                logo.thumbnail((sz, sz))
+                img.paste(logo, (W - sz - 36, 30), logo)
+            except Exception:
+                pass
+            break
+
     img.save(out_path)
     return out_path
 
