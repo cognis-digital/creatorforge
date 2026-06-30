@@ -13,6 +13,15 @@ Business owner? Creator? Ask yourself:
 
 If you nodded, here's the deal: `creatorforge` is that content team, as **open software you own and run yourself**. No retainer. No 50-spots-only. No "proprietary" black box. It's free, COCL (Cognis Open Collaboration License), and runs on *your* hardware and *your* model.
 
+
+## Watch the walkthrough
+
+A full narrated tour — setup, the tool in action, and every demo scenario:
+
+[![Watch the creatorforge walkthrough](media/walkthrough-thumb.png)](https://github.com/cognis-digital/creatorforge/releases/download/walkthrough-v1/walkthrough.mp4)
+
+▶ **[Watch the walkthrough (MP4)](https://github.com/cognis-digital/creatorforge/releases/download/walkthrough-v1/walkthrough.mp4)**
+
 ## What you get
 
 The same deliverables an agency installs — generated from one command:
